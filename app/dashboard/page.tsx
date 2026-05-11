@@ -113,6 +113,40 @@ export default async function DashboardPage() {
         )}
       </div>
 
+      {/* Net Capital Balance Banner */}
+      {(() => {
+        const netBalance = totalIncome - spent;
+        if (netBalance >= 0) {
+          return (
+            <div className="bg-blue-50 rounded-xl p-4 border border-blue-100 shadow-sm space-y-2 transition-all">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                  <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">Net Cash In Hand</span>
+                </div>
+                <span className="text-[10px] font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">🟢 Capital Healthy</span>
+              </div>
+              <p className="text-2xl font-extrabold text-blue-900 font-sans">{formatINR(netBalance)}</p>
+              <p className="text-xs text-blue-700/80">Site funds received exceed total actual expenditures to date.</p>
+            </div>
+          );
+        } else {
+          return (
+            <div className="bg-red-50 rounded-xl p-4 border border-red-100 shadow-sm space-y-2 transition-all animate-pulse">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                  <span className="text-xs font-bold text-red-700 uppercase tracking-wider">Net Cash Deficit</span>
+                </div>
+                <span className="text-[10px] font-bold bg-red-100 text-red-800 px-2 py-0.5 rounded-full">🚨 Cash Deficit Alert</span>
+              </div>
+              <p className="text-2xl font-extrabold text-red-900 font-sans">{formatINR(netBalance)}</p>
+              <p className="text-xs text-red-700/80">Site expenditures exceed deposited capital by {formatINR(Math.abs(netBalance))}. Please log fresh capital logs!</p>
+            </div>
+          );
+        }
+      })()}
+
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-3">
         <StatCard

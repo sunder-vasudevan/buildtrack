@@ -19,6 +19,7 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes }: Fi
   
   // Accordion sections collapse state
   const [fundsExpanded, setFundsExpanded] = useState(false);
+  const [budgetExpanded, setBudgetExpanded] = useState(true);
   const [budgetExpandedCat, setBudgetExpandedCat] = useState<string | null>(null);
   
   const [filterCat, setFilterCat] = useState<string>("all");
@@ -264,105 +265,122 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes }: Fi
           )}
         </div>
 
-        {/* SECTION 2: Collapsible Budget Categories */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between pt-2">
-            <h3 className="text-sm font-bold text-gray-900">Budget Categories</h3>
-            <span className="text-xs text-muted-foreground">{categories.length} segments</span>
-          </div>
+        {/* SECTION 2: Collapsible Budget Categories Section */}
+        <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+          <button
+            onClick={() => setBudgetExpanded(!budgetExpanded)}
+            className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50/50 transition-colors"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
+                <Wallet className="h-4.5 w-4.5" />
+              </div>
+              <div>
+                <p className="font-bold text-sm text-gray-900">Budget & Expenses</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Spent {formatINR(spent)} of {formatINR(totalBudget)} across {categories.length} segments
+                </p>
+              </div>
+            </div>
+            {budgetExpanded ? <ChevronUp className="h-5 w-5 text-gray-400" /> : <ChevronDown className="h-5 w-5 text-gray-400" />}
+          </button>
 
-          {/* Category Filter Pills */}
-          <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-            {["all", ...categories].map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setFilterCat(cat)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 transition-all ${
-                  filterCat === cat ? "bg-gray-900 text-white shadow-sm" : "bg-white text-gray-600 border border-border hover:bg-gray-50"
-                }`}
-              >
-                {cat === "all" ? "All" : cat}
-              </button>
-            ))}
-          </div>
-
-          {/* Accordions list */}
-          <div className="space-y-2.5">
-            {filteredCategories.map((cat) => {
-              const catItems = grouped[cat];
-              const catQuoted = catItems.reduce((s, i) => s + (i.quoted_cost ?? 0), 0);
-              const catActual = catItems.reduce((s, i) => s + (i.actual_cost ?? 0), 0);
-              const isOpen = budgetExpandedCat === cat;
-
-              return (
-                <div key={cat} className="bg-white rounded-xl shadow-sm border border-border overflow-hidden transition-all">
+          {budgetExpanded && (
+            <div className="border-t border-border bg-gray-50/30 p-4 space-y-3">
+              {/* Category Filter Pills */}
+              <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                {["all", ...categories].map((cat) => (
                   <button
-                    onClick={() => setBudgetExpandedCat(isOpen ? null : cat)}
-                    className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50/30 transition-colors"
+                    key={cat}
+                    onClick={() => setFilterCat(cat)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 transition-all ${
+                      filterCat === cat ? "bg-gray-900 text-white shadow-sm" : "bg-white text-gray-600 border border-border hover:bg-gray-50"
+                    }`}
                   >
-                    <div>
-                      <p className="font-bold text-sm text-gray-900">{cat}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {formatINR(catQuoted)} target · {catActual > 0 ? formatINR(catActual) + " paid" : "No actuals yet"}
-                      </p>
-                    </div>
-                    {isOpen ? <ChevronUp className="h-4.5 w-4.5 text-gray-400" /> : <ChevronDown className="h-4.5 w-4.5 text-gray-400" />}
+                    {cat === "all" ? "All" : cat}
                   </button>
+                ))}
+              </div>
 
-                  {isOpen && (
-                    <div className="border-t border-border divide-y divide-border bg-gray-50/10">
-                      {catItems.map((item) => {
-                        const variance = (item.actual_cost ?? 0) - (item.quoted_cost ?? 0);
-                        return (
-                          <div key={item.id} className="px-4 py-3.5 space-y-2">
-                            <div className="flex items-start justify-between gap-3">
-                              <p className="text-xs font-semibold text-gray-800 flex-1 leading-normal">{item.item_name}</p>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                {item.status && (
-                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.status === "Paid" ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-700"}`}>
-                                    {item.status}
-                                  </span>
+              {/* Accordions list */}
+              <div className="space-y-2.5">
+                {filteredCategories.map((cat) => {
+                  const catItems = grouped[cat];
+                  const catQuoted = catItems.reduce((s, i) => s + (i.quoted_cost ?? 0), 0);
+                  const catActual = catItems.reduce((s, i) => s + (i.actual_cost ?? 0), 0);
+                  const isOpen = budgetExpandedCat === cat;
+
+                  return (
+                    <div key={cat} className="bg-white rounded-xl shadow-sm border border-border overflow-hidden transition-all">
+                      <button
+                        onClick={() => setBudgetExpandedCat(isOpen ? null : cat)}
+                        className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50/30 transition-colors"
+                      >
+                        <div>
+                          <p className="font-bold text-sm text-gray-900">{cat}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {formatINR(catQuoted)} target · {catActual > 0 ? formatINR(catActual) + " paid" : "No actuals yet"}
+                          </p>
+                        </div>
+                        {isOpen ? <ChevronUp className="h-4.5 w-4.5 text-gray-400" /> : <ChevronDown className="h-4.5 w-4.5 text-gray-400" />}
+                      </button>
+
+                      {isOpen && (
+                        <div className="border-t border-border divide-y divide-border bg-gray-50/10">
+                          {catItems.map((item) => {
+                            const variance = (item.actual_cost ?? 0) - (item.quoted_cost ?? 0);
+                            return (
+                              <div key={item.id} className="px-4 py-3.5 space-y-2">
+                                <div className="flex items-start justify-between gap-3">
+                                  <p className="text-xs font-semibold text-gray-800 flex-1 leading-normal">{item.item_name}</p>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {item.status && (
+                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.status === "Paid" ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-700"}`}>
+                                        {item.status}
+                                      </span>
+                                    )}
+                                    <button
+                                      onClick={() => setEditingItem(item)}
+                                      className="p-1.5 rounded-lg border border-border bg-white hover:bg-gray-50 text-gray-500 transition-colors active:scale-95"
+                                      title="Log Actual"
+                                    >
+                                      <PencilLine className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-2 text-xs pt-1 border-t border-gray-50">
+                                  <div>
+                                    <p className="text-[10px] text-muted-foreground">Target</p>
+                                    <p className="font-semibold text-gray-800 font-sans mt-0.5">{formatINR(item.quoted_cost)}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] text-muted-foreground">Paid Actual</p>
+                                    <p className="font-semibold text-gray-800 font-sans mt-0.5">{item.actual_cost ? formatINR(item.actual_cost) : "—"}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] text-muted-foreground">Variance</p>
+                                    <p className={`font-semibold font-sans mt-0.5 ${variance > 0 ? "text-red-600" : variance < 0 ? "text-emerald-600" : "text-gray-600"}`}>
+                                      {item.actual_cost ? (variance > 0 ? "+" : "") + formatINR(variance) : "—"}
+                                    </p>
+                                  </div>
+                                </div>
+                                {item.notes && (
+                                  <p className="text-[10px] text-gray-500 bg-gray-50 rounded p-1.5 mt-1 border border-gray-100/50 break-all whitespace-normal">
+                                    📝 {item.notes}
+                                  </p>
                                 )}
-                                <button
-                                  onClick={() => setEditingItem(item)}
-                                  className="p-1.5 rounded-lg border border-border bg-white hover:bg-gray-50 text-gray-500 transition-colors active:scale-95"
-                                  title="Log Actual"
-                                >
-                                  <PencilLine className="h-3.5 w-3.5" />
-                                </button>
                               </div>
-                            </div>
-
-                            <div className="grid grid-cols-3 gap-2 text-xs pt-1 border-t border-gray-50">
-                              <div>
-                                <p className="text-[10px] text-muted-foreground">Target</p>
-                                <p className="font-semibold text-gray-800 font-sans mt-0.5">{formatINR(item.quoted_cost)}</p>
-                              </div>
-                              <div>
-                                <p className="text-[10px] text-muted-foreground">Paid Actual</p>
-                                <p className="font-semibold text-gray-800 font-sans mt-0.5">{item.actual_cost ? formatINR(item.actual_cost) : "—"}</p>
-                              </div>
-                              <div>
-                                <p className="text-[10px] text-muted-foreground">Variance</p>
-                                <p className={`font-semibold font-sans mt-0.5 ${variance > 0 ? "text-red-600" : variance < 0 ? "text-emerald-600" : "text-gray-600"}`}>
-                                  {item.actual_cost ? (variance > 0 ? "+" : "") + formatINR(variance) : "—"}
-                                </p>
-                              </div>
-                            </div>
-                            {item.notes && (
-                              <p className="text-[10px] text-gray-500 bg-gray-50 rounded p-1.5 mt-1 border border-gray-100/50 break-all whitespace-normal">
-                                📝 {item.notes}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
