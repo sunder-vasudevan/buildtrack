@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import * as Tabs from "@radix-ui/react-tabs";
-import { Project, Worker, Window, Vendor } from "@/lib/types";
+import { Project, Worker, Window } from "@/lib/types";
 import { ProjectInfoTab } from "@/components/more/ProjectInfoTab";
 import { TeamTab } from "@/components/more/TeamTab";
 import { WindowsClient } from "@/components/tracker/WindowsTab";
@@ -8,11 +8,10 @@ import { WindowsClient } from "@/components/tracker/WindowsTab";
 export const dynamic = "force-dynamic";
 
 export default async function MorePage() {
-  const [projectRes, workersRes, windowsRes, vendorsRes] = await Promise.all([
+  const [projectRes, workersRes, windowsRes] = await Promise.all([
     supabase.from("projects").select("*").single(),
     supabase.from("workers").select("*").order("name"),
     supabase.from("windows").select("*").order("window_id"),
-    supabase.from("vendors").select("id, vendor_name").order("vendor_name"),
   ]);
 
   if (projectRes.error) console.error("Error fetching project:", projectRes.error);
@@ -20,12 +19,10 @@ export default async function MorePage() {
     console.error("Error fetching workers:", workersRes.error);
   }
   if (windowsRes.error) console.error("Error fetching windows:", windowsRes.error);
-  if (vendorsRes.error) console.error("Error fetching vendors:", vendorsRes.error);
 
   const project = projectRes.data as Project | null;
   const workers = (workersRes.data ?? []) as Worker[];
   const windows = (windowsRes.data ?? []) as Window[];
-  const vendors = (vendorsRes.data ?? []) as Pick<Vendor, "id" | "vendor_name">[];
 
   return (
     <div className="p-4 flex flex-col h-[calc(100vh-4rem)]">
@@ -63,7 +60,7 @@ export default async function MorePage() {
             <TeamTab initialWorkers={workers} />
           </Tabs.Content>
           <Tabs.Content value="windows" className="outline-none h-full">
-            <WindowsClient initialWindows={windows} vendors={vendors} />
+            <WindowsClient initialWindows={windows} />
           </Tabs.Content>
         </div>
       </Tabs.Root>

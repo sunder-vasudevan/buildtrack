@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Window, Vendor, WindowStatus } from "@/lib/types";
+import { Window, WindowStatus } from "@/lib/types";
 import { formatINR, formatDate } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { AlertTriangle } from "lucide-react";
@@ -24,10 +24,8 @@ type Filter = "all" | "required" | "optional";
 
 export function WindowsClient({
   initialWindows,
-  vendors,
 }: {
   initialWindows: Window[];
-  vendors: Pick<Vendor, "id" | "vendor_name">[];
 }) {
   const [windows, setWindows] = useState(initialWindows);
   const [filter, setFilter] = useState<Filter>("all");
@@ -49,7 +47,6 @@ export function WindowsClient({
       ordered_date: w.ordered_date,
       delivery_date: w.delivery_date,
       installed_date: w.installed_date,
-      vendor_id: w.vendor_id,
       notes: w.notes,
     });
   }
@@ -221,20 +218,7 @@ export function WindowsClient({
                 ))}
               </div>
 
-              {/* Vendor */}
-              <div>
-                <label className="text-xs font-medium text-gray-700 block mb-1">Vendor</label>
-                <select
-                  value={formState.vendor_id ?? ""}
-                  onChange={(e) => setFormState((p) => ({ ...p, vendor_id: e.target.value || null }))}
-                  className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white"
-                >
-                  <option value="">No vendor</option>
-                  {vendors.map((v) => (
-                    <option key={v.id} value={v.id}>{v.vendor_name}</option>
-                  ))}
-                </select>
-              </div>
+
 
               {/* Notes */}
               <div>
