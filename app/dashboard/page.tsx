@@ -1,38 +1,67 @@
 import { supabase } from "@/lib/supabase";
 import { formatINR, daysLeft, formatDate } from "@/lib/utils";
-import { BudgetItem, DailyLog, Project, Income } from "@/lib/types";
+import { BudgetItem, DailyLog, Project, Income, Phase } from "@/lib/types";
 import { CalendarDays, IndianRupee } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 
 async function getData() {
-  const [projectRes, budgetRes, logsRes, incomeRes] = await Promise.all([
+  const [projectRes, budgetRes, logsRes, incomeRes, phasesRes] = await Promise.all([
     supabase.from("projects").select("*").single(),
     supabase.from("budget_items").select("actual_cost, quoted_cost"),
     supabase.from("daily_logs").select("*").order("log_date", { ascending: false }).limit(3),
     supabase.from("income").select("amount"),
+    supabase.from("phases").select("*").order("phase_number"),
   ]);
 
   if (projectRes.error) console.error("Error fetching project:", projectRes.error);
   if (budgetRes.error) console.error("Error fetching budget:", budgetRes.error);
   if (logsRes.error) console.error("Error fetching logs:", logsRes.error);
   if (incomeRes.error && incomeRes.error.code !== "42P01") console.error("Error fetching income:", incomeRes.error);
+  if (phasesRes.error) console.error("Error fetching phases:", phasesRes.error);
 
   return {
     project: projectRes.data as Project | null,
     budgetItems: (budgetRes.data ?? []) as Pick<BudgetItem, "actual_cost" | "quoted_cost">[],
     recentLogs: (logsRes.data ?? []) as DailyLog[],
     incomes: (incomeRes.data ?? []) as Pick<Income, "amount">[],
+    phases: (phasesRes.data ?? []) as Phase[],
   };
 }
 
 export default async function DashboardPage() {
-  const { project, budgetItems, recentLogs, incomes } = await getData();
+  const { project, budgetItems, recentLogs, incomes, phases } = await getData();
 
   const totalBudget = project?.total_budget ?? 21_74_500;
   const spent = budgetItems.reduce((s, i) => s + (i.actual_cost ?? 0), 0);
   const totalIncome = incomes.reduce((s, i) => s + (i.amount ?? 0), 0);
   const remaining = totalBudget - spent;
   const days = project ? daysLeft(project.end_date) : 0;
+
+  let scheduleVariance = 0;
+  let hasTracking = false;
+  
+  for (const p of phases) {
+    if (p.status === "Completed" && p.actual_end_date) {
+      const expected = new Date(p.end_date).getTime();
+      const actual = new Date(p.actual_end_date).getTime();
+      scheduleVariance += Math.round((actual - expected) / (1000 * 60 * 60 * 24));
+      hasTracking = true;
+    } else if (p.status === "In Progress" || p.status === "Delayed") {
+      const expected = new Date(p.end_date).getTime();
+      const today = new Date().getTime();
+      if (today > expected) {
+        scheduleVariance += Math.round((today - expected) / (1000 * 60 * 60 * 24));
+      }
+      hasTracking = true;
+    }
+  }
+
+  let varianceText = project ? `Until ${formatDate(project.end_date)}` : "Sep 20, 2026";
+  if (hasTracking) {
+    if (scheduleVariance > 0) varianceText = `+${scheduleVariance}d behind schedule`;
+    else if (scheduleVariance < 0) varianceText = `${scheduleVariance}d ahead of schedule`;
+    else varianceText = "Exactly on schedule";
+  }
 
   return (
     <div className="p-4 space-y-4">
@@ -57,7 +86,7 @@ export default async function DashboardPage() {
           icon={<CalendarDays className="h-4 w-4 text-blue-600" />}
           label="Days Left"
           value={days > 0 ? `${days}d` : "Overdue"}
-          sub={project ? `Until ${formatDate(project.end_date)}` : "Sep 20, 2026"}
+          sub={varianceText}
           color="blue"
         />
         <StatCard
