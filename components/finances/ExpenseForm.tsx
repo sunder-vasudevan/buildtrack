@@ -46,9 +46,14 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
         .order("category")
         .order("item_name");
       if (data) {
-        // Filter out items that have no quoted_cost (which are custom unplanned items!)
+        // Filter out items under "Other" / "Misc/Unplanned" category, and items with no quoted_cost
         const validEstimates = (data as BudgetItem[]).filter(
-          (item) => item.quoted_cost !== null && item.quoted_cost > 0
+          (item) =>
+            item.category !== "Other" &&
+            item.category !== "Others" &&
+            item.category !== "Misc/Unplanned" &&
+            item.quoted_cost !== null &&
+            item.quoted_cost > 0
         );
         setBudgetItems(validEstimates);
       }
@@ -176,8 +181,8 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center">
-      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[92vh] overflow-y-auto relative">
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[85vh] sm:max-h-[90vh] overflow-y-auto relative">
         <div className="p-4 border-b border-border sticky top-0 bg-white rounded-t-2xl flex items-center justify-between">
           <h2 className="font-bold text-gray-900">
             {prefillItem ? `Log Actual — ${prefillItem.item_name}` : "Add Expense"}
