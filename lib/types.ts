@@ -148,3 +148,12 @@ export interface Income {
   notes: string | null;
   created_at: string;
 }
+
+export interface Reminder {
+  id: string;
+  project_id: string;
+  text: string;
+  due_date: string | null;
+  done: boolean;
+  created_at: string;
+}
