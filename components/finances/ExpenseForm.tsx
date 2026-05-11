@@ -46,7 +46,11 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
         .order("category")
         .order("item_name");
       if (data) {
-        setBudgetItems(data as BudgetItem[]);
+        // Filter out items that have no quoted_cost (which are custom unplanned items!)
+        const validEstimates = (data as BudgetItem[]).filter(
+          (item) => item.quoted_cost !== null && item.quoted_cost > 0
+        );
+        setBudgetItems(validEstimates);
       }
     }
     loadBudgetItems();
