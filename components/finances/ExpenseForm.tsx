@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { X, Upload, Loader2, Search, ChevronDown } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { BudgetItem } from "@/lib/types";
@@ -36,6 +36,7 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
   const [selectedBudgetItemId, setSelectedBudgetItemId] = useState<string>("");
   const [showSelector, setShowSelector] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     async function loadBudgetItems() {
@@ -58,6 +59,32 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
           item.category.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : budgetItems;
+
+  const groupedItems = useMemo(() => {
+    const groups: Record<string, typeof budgetItems> = {};
+    filteredBudgetItems.forEach((item) => {
+      const cat = item.category || "Other";
+      if (!groups[cat]) {
+        groups[cat] = [];
+      }
+      groups[cat].push(item);
+    });
+    return groups;
+  }, [filteredBudgetItems]);
+
+  const isCategoryExpanded = (category: string) => {
+    if (searchQuery.trim() !== "") {
+      return true;
+    }
+    return !!expandedCategories[category];
+  };
+
+  const toggleCategory = (category: string) => {
+    setExpandedCategories((prev) => ({
+      ...prev,
+      [category]: !prev[category],
+    }));
+  };
 
   const handleBudgetSelectionChange = (itemId: string) => {
     setSelectedBudgetItemId(itemId);
@@ -190,7 +217,7 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
             </div>
 
             {/* Scrollable list */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-gray-50/20">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/20">
               {/* Option to create custom expense */}
               <button
                 type="button"
@@ -212,7 +239,7 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
               </button>
 
               <div className="pt-2 pb-1">
-                <p className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Active Vendor Quotes</p>
+                <p className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Active Quotes By Category</p>
               </div>
 
               {filteredBudgetItems.length === 0 ? (
@@ -221,39 +248,71 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
                   <p className="text-xs text-muted-foreground mt-0.5">Try searching for another keyword</p>
                 </div>
               ) : (
-                filteredBudgetItems.map((item) => {
-                  const isSelected = selectedBudgetItemId === item.id;
+                Object.entries(groupedItems).map(([category, items]) => {
+                  const isExpanded = isCategoryExpanded(category);
                   return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        handleBudgetSelectionChange(item.id);
-                        setShowSelector(false);
-                      }}
-                      className={`w-full p-3.5 rounded-xl border text-left flex items-start justify-between gap-4 transition-all ${
-                        isSelected
-                          ? "border-primary bg-blue-50/20 shadow-sm"
-                          : "border-border bg-white hover:bg-gray-50"
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <span className="inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 mb-1.5">
-                          {item.category}
-                        </span>
-                        <h4 className="font-bold text-sm text-gray-900 break-words leading-tight">{item.item_name}</h4>
-                        {item.notes && (
-                          <p className="text-xs text-muted-foreground line-clamp-1 mt-1">{item.notes}</p>
-                        )}
-                      </div>
-                      {item.quoted_cost && (
-                        <div className="text-right shrink-0">
-                          <span className="text-xs font-bold px-2 py-1 bg-blue-50 text-blue-700 rounded-lg font-sans">
-                            ₹{item.quoted_cost.toLocaleString("en-IN")}
+                    <div key={category} className="border border-border rounded-xl bg-white overflow-hidden shadow-sm">
+                      <button
+                        type="button"
+                        onClick={() => toggleCategory(category)}
+                        className="w-full flex items-center justify-between p-3.5 bg-gray-50/50 hover:bg-gray-100/40 transition-colors focus:outline-none"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-gray-800 uppercase tracking-wider text-left">
+                            {category}
+                          </span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600 font-sans">
+                            {items.length}
                           </span>
                         </div>
+                        <ChevronDown
+                          className={`h-4 w-4 text-gray-400 transition-transform duration-200 shrink-0 ${
+                            isExpanded ? "transform rotate-180" : ""
+                          }`}
+                        />
+                      </button>
+
+                      {isExpanded && (
+                        <div className="p-2 border-t border-border/60 divide-y divide-gray-100 bg-white space-y-1">
+                          {items.map((item) => {
+                            const isSelected = selectedBudgetItemId === item.id;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => {
+                                  handleBudgetSelectionChange(item.id);
+                                  setShowSelector(false);
+                                }}
+                                className={`w-full p-3 rounded-lg text-left flex items-start justify-between gap-4 transition-all ${
+                                  isSelected
+                                    ? "bg-primary/5 border-l-2 border-primary"
+                                    : "hover:bg-gray-50"
+                                }`}
+                              >
+                                <div className="min-w-0">
+                                  <h4 className="font-bold text-sm text-gray-900 break-words leading-tight">
+                                    {item.item_name}
+                                  </h4>
+                                  {item.notes && (
+                                    <p className="text-xs text-muted-foreground line-clamp-1 mt-1">
+                                      {item.notes}
+                                    </p>
+                                  )}
+                                </div>
+                                {item.quoted_cost && (
+                                  <div className="text-right shrink-0">
+                                    <span className="text-xs font-bold px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md font-sans">
+                                      ₹{item.quoted_cost.toLocaleString("en-IN")}
+                                    </span>
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
                       )}
-                    </button>
+                    </div>
                   );
                 })
               )}
