@@ -173,42 +173,7 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes }: Fi
           </button>
         </div>
 
-        {/* Premium Dashboard Grid */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white rounded-xl p-3 border border-border shadow-sm space-y-1">
-            <p className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">Total Project Budget</p>
-            <p className="text-lg font-extrabold text-gray-900 font-sans">{formatINR(totalBudget)}</p>
-          </div>
-          <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100 shadow-sm space-y-1">
-            <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Total Funds Received</p>
-            <p className="text-lg font-extrabold text-emerald-800 font-sans">{formatINR(totalFunds)}</p>
-          </div>
-          <div className="bg-orange-50 rounded-xl p-3 border border-orange-100 shadow-sm space-y-1">
-            <p className="text-[10px] font-bold text-orange-700 uppercase tracking-wider">Total Spent</p>
-            <p className="text-lg font-extrabold text-orange-800 font-sans">{formatINR(spent)}</p>
-          </div>
-          <div className={`rounded-xl p-3 shadow-sm border space-y-1 ${cashBalance >= 0 ? "bg-blue-50 border-blue-100" : "bg-red-50 border-red-100"}`}>
-            <p className={`text-[10px] font-bold uppercase tracking-wider ${cashBalance >= 0 ? "text-blue-700" : "text-red-700"}`}>Net Cash In Hand</p>
-            <p className={`text-lg font-extrabold font-sans ${cashBalance >= 0 ? "text-blue-800" : "text-red-800"}`}>{formatINR(cashBalance)}</p>
-          </div>
-        </div>
 
-        {/* Unified Progress Slider */}
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-border space-y-2">
-          <div className="flex justify-between text-xs text-muted-foreground font-semibold">
-            <span>Spent of Capital: {totalFunds > 0 ? Math.round((spent / totalFunds) * 100) : 0}%</span>
-            <span>Spent of Budget: {totalBudget > 0 ? Math.round((spent / totalBudget) * 100) : 0}%</span>
-          </div>
-          <div className="h-3 bg-gray-100 rounded-full overflow-hidden relative">
-            <div
-              className={`h-full rounded-full transition-all ${spent > totalFunds ? "bg-red-500 animate-pulse" : "bg-orange-500"}`}
-              style={{ width: `${Math.min(100, totalFunds > 0 ? (spent / totalFunds) * 100 : 0)}%` }}
-            />
-          </div>
-          {spent > totalFunds && (
-            <p className="text-[10px] font-semibold text-red-600">🚨 Spent exceeds received funds by {formatINR(spent - totalFunds)}</p>
-          )}
-        </div>
 
         {/* SECTION 1: Collapsible Funds Received Section */}
         <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">

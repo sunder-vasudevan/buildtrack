@@ -82,38 +82,7 @@ export default async function DashboardPage() {
 
 
 
-      {/* Budget Overview */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-border space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold text-gray-900">Budget</span>
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-            budgetColor === "red" ? "bg-red-100 text-red-700" :
-            budgetColor === "orange" ? "bg-orange-100 text-orange-700" :
-            "bg-emerald-100 text-emerald-700"
-          }`}>
-            {spentPct.toFixed(0)}% used
-          </span>
-        </div>
-        <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
-          <div
-            className={`h-3 rounded-full transition-all ${
-              budgetColor === "red" ? "bg-red-500" :
-              budgetColor === "orange" ? "bg-orange-400" :
-              "bg-emerald-500"
-            }`}
-            style={{ width: `${Math.min(spentPct, 100)}%` }}
-          />
-        </div>
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>Spent: <span className="font-semibold text-gray-800">{formatINR(spent)}</span></span>
-          <span>Budget: <span className="font-semibold text-gray-800">{formatINR(totalBudget)}</span></span>
-        </div>
-        {remaining < 0 && (
-          <p className="text-xs font-semibold text-red-600">Over budget by {formatINR(Math.abs(remaining))}</p>
-        )}
-      </div>
-
-      {/* Net Capital Balance Banner */}
+      {/* Net Cash In Hand Banner (Health Indicator) */}
       {(() => {
         const netBalance = totalIncome - spent;
         if (netBalance >= 0) {
@@ -138,46 +107,57 @@ export default async function DashboardPage() {
                   <span className="flex h-2 w-2 rounded-full bg-red-500 animate-ping" />
                   <span className="text-xs font-bold text-red-700 uppercase tracking-wider">Net Cash Deficit</span>
                 </div>
-                <span className="text-[10px] font-bold bg-red-100 text-red-800 px-2 py-0.5 rounded-full">🚨 Cash Deficit Alert</span>
+                <span className="text-[10px] font-bold bg-red-100 text-red-800 px-2 py-0.5 rounded-full">🚨 Over-spent Alert</span>
               </div>
               <p className="text-2xl font-extrabold text-red-900 font-sans">{formatINR(netBalance)}</p>
-              <p className="text-xs text-red-700/80">Site expenditures exceed deposited capital by {formatINR(Math.abs(netBalance))}. Please log fresh capital logs!</p>
+              <p className="text-xs text-red-700/80">Site expenditures exceed deposited capital by {formatINR(Math.abs(netBalance))}. Record capital logs!</p>
             </div>
           );
         }
       })()}
 
-      {/* Stat cards */}
+      {/* Modern 4-Grid Metrics */}
       <div className="grid grid-cols-2 gap-3">
-        <StatCard
-          icon={<IndianRupee className="h-4 w-4 text-emerald-600" />}
-          label="Total Funds"
-          value={formatINR(totalIncome)}
-          sub={totalIncome === 0 ? "No funds added" : "Capital received"}
-          color="emerald"
-        />
-        <StatCard
-          icon={<CalendarDays className="h-4 w-4 text-blue-600" />}
-          label="Days Left"
-          value={days > 0 ? `${days}d` : "Overdue"}
-          sub={varianceText}
-          color="blue"
-          badge={varianceBadge}
-        />
-        <StatCard
-          icon={<IndianRupee className="h-4 w-4 text-orange-600" />}
-          label="Spent"
-          value={formatINR(spent)}
-          sub={spent === 0 ? "No actuals yet" : "Total to date"}
-          color="orange"
-        />
-        <StatCard
-          icon={<IndianRupee className="h-4 w-4 text-purple-600" />}
-          label="Planned"
-          value={formatINR(totalBudget)}
-          sub="Total project budget"
-          color="purple"
-        />
+        <div className="bg-white rounded-xl p-3 border border-border shadow-sm space-y-1">
+          <p className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">Total Project Budget</p>
+          <p className="text-base font-extrabold text-gray-900 font-sans">{formatINR(totalBudget)}</p>
+        </div>
+        <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100 shadow-sm space-y-1">
+          <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Total Funds Received</p>
+          <p className="text-base font-extrabold text-emerald-800 font-sans">{formatINR(totalIncome)}</p>
+        </div>
+        <div className="bg-orange-50 rounded-xl p-3 border border-orange-100 shadow-sm space-y-1">
+          <p className="text-[10px] font-bold text-orange-700 uppercase tracking-wider">Total Spent</p>
+          <p className="text-base font-extrabold text-orange-800 font-sans">{formatINR(spent)}</p>
+        </div>
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 shadow-sm space-y-1 relative">
+          <p className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Days Left</p>
+          <p className="text-base font-extrabold text-blue-800 font-sans">{days > 0 ? `${days}d` : "Overdue"}</p>
+          {varianceBadge && (
+            <span className={`absolute bottom-2.5 right-2.5 text-[8px] font-bold px-1.5 py-0.5 rounded-full ${
+              varianceBadge.color === "red" ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"
+            }`}>
+              {varianceBadge.text}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Double Progress Bar */}
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-border space-y-2">
+        <div className="flex justify-between text-xs text-muted-foreground font-semibold">
+          <span>Spent of Capital: {totalIncome > 0 ? Math.round((spent / totalIncome) * 100) : 0}%</span>
+          <span>Spent of Budget: {totalBudget > 0 ? Math.round((spent / totalBudget) * 100) : 0}%</span>
+        </div>
+        <div className="h-3 bg-gray-100 rounded-full overflow-hidden relative">
+          <div
+            className={`h-full rounded-full transition-all ${spent > totalIncome ? "bg-red-500 animate-pulse" : "bg-orange-500"}`}
+            style={{ width: `${Math.min(100, totalIncome > 0 ? (spent / totalIncome) * 100 : 0)}%` }}
+          />
+        </div>
+        {spent > totalIncome && (
+          <p className="text-[10px] font-semibold text-red-600">🚨 Site actual expenses exceed capital received by {formatINR(spent - totalIncome)}</p>
+        )}
       </div>
 
 
