@@ -2,6 +2,8 @@ import { supabase } from "@/lib/supabase";
 import { formatINR, daysLeft, formatDate } from "@/lib/utils";
 import { Phase, Window, BudgetItem, DailyLog, Project } from "@/lib/types";
 import { AlertTriangle, CalendarDays, IndianRupee, SquareStack } from "lucide-react";
+import { StatCard } from "@/components/dashboard/StatCard";
+import { PhaseRow } from "@/components/dashboard/PhaseRow";
 
 async function getData() {
   const [projectRes, phasesRes, windowsRes, budgetRes, logsRes] = await Promise.all([
@@ -11,6 +13,13 @@ async function getData() {
     supabase.from("budget_items").select("actual_cost, quoted_cost"),
     supabase.from("daily_logs").select("*").order("log_date", { ascending: false }).limit(3),
   ]);
+
+  if (projectRes.error) console.error("Error fetching project:", projectRes.error);
+  if (phasesRes.error) console.error("Error fetching phases:", phasesRes.error);
+  if (windowsRes.error) console.error("Error fetching windows:", windowsRes.error);
+  if (budgetRes.error) console.error("Error fetching budget:", budgetRes.error);
+  if (logsRes.error) console.error("Error fetching logs:", logsRes.error);
+
   return {
     project: projectRes.data as Project | null,
     phases: (phasesRes.data ?? []) as Phase[],
@@ -18,20 +27,6 @@ async function getData() {
     budgetItems: (budgetRes.data ?? []) as Pick<BudgetItem, "actual_cost" | "quoted_cost">[],
     recentLogs: (logsRes.data ?? []) as DailyLog[],
   };
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    "Not Started": "bg-gray-100 text-gray-600",
-    "In Progress": "bg-blue-100 text-blue-700",
-    Completed: "bg-emerald-100 text-emerald-700",
-    Delayed: "bg-red-100 text-red-700",
-  };
-  return (
-    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${colors[status] ?? "bg-gray-100 text-gray-600"}`}>
-      {status}
-    </span>
-  );
 }
 
 export default async function DashboardPage() {
@@ -122,48 +117,3 @@ export default async function DashboardPage() {
   );
 }
 
-function StatCard({
-  icon, label, value, sub, color,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  sub: string;
-  color: string;
-}) {
-  return (
-    <div className="bg-white rounded-xl p-4 shadow-sm border border-border">
-      <div className="flex items-center gap-2 mb-2">{icon}<span className="text-xs text-muted-foreground">{label}</span></div>
-      <p className="text-lg font-bold text-gray-900 leading-tight">{value}</p>
-      <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>
-    </div>
-  );
-}
-
-function PhaseRow({ phase }: { phase: Phase }) {
-  const progressMap: Record<string, number> = {
-    "Not Started": 0,
-    "In Progress": 50,
-    Completed: 100,
-    Delayed: 30,
-  };
-  const progress = progressMap[phase.status] ?? 0;
-
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-gray-700 truncate pr-2">{phase.name}</span>
-        <StatusBadge status={phase.status} />
-      </div>
-      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-blue-500 rounded-full transition-all"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {formatDate(phase.start_date)} — {formatDate(phase.end_date)}
-      </p>
-    </div>
-  );
-}

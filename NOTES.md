@@ -7,7 +7,7 @@
 **Version:** v0.1.0
 **Repo:** https://github.com/sunder-vasudevan/buildtrack (to be created)
 **Local:** ~/Daytona/buildtrack
-**Live:** TBD — pending Vercel deploy
+**Live:** https://vasudha-track.vercel.app
 
 ## Stack
 | Layer | Choice |
@@ -41,6 +41,5 @@
 v0.1.0 — Full scaffold: all pages, DB schema, seed data, Supabase wired. Pending: Vercel deploy.
 
 ## Open Flags
-- Vercel deploy not done yet
-- Photo upload UI exists but not tested end-to-end (bucket needs creating)
-- GitHub repo not created yet
+- Photo upload UI exists but not tested end-to-end on real phone
+- Next.js upgraded to v16 (CVE-2025-66478 patch applied)
