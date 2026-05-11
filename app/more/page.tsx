@@ -1,60 +1,57 @@
-import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { formatINR, formatDate, daysLeft } from "@/lib/utils";
-import { Building2, Users, BarChart3, Settings } from "lucide-react";
+import * as Tabs from "@radix-ui/react-tabs";
+import { Project, Worker } from "@/lib/types";
+import { ProjectInfoTab } from "@/components/more/ProjectInfoTab";
+import { TeamTab } from "@/components/more/TeamTab";
+
+export const dynamic = "force-dynamic";
 
 export default async function MorePage() {
-  const { data: project } = await supabase.from("projects").select("*").single();
+  const [projectRes, workersRes] = await Promise.all([
+    supabase.from("projects").select("*").single(),
+    supabase.from("workers").select("*").order("name"),
+  ]);
+
+  if (projectRes.error) console.error("Error fetching project:", projectRes.error);
+  if (workersRes.error && workersRes.error.code !== "42P01") {
+    // Ignore 42P01 (relation does not exist) as the table might not be created yet in dev
+    console.error("Error fetching workers:", workersRes.error);
+  }
+
+  const project = projectRes.data as Project | null;
+  const workers = (workersRes.data ?? []) as Worker[];
 
   return (
-    <div className="p-4 space-y-4">
-      <div className="pt-4">
+    <div className="p-4 flex flex-col h-[calc(100vh-4rem)]">
+      <div className="pt-4 pb-2">
         <h1 className="text-xl font-bold text-gray-900">More</h1>
       </div>
 
-      {/* Project info */}
-      {project && (
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-border space-y-3">
-          <h2 className="font-semibold text-sm text-gray-900 flex items-center gap-2">
-            <Building2 className="h-4 w-4" /> Project Info
-          </h2>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div><p className="text-xs text-muted-foreground">Name</p><p className="font-medium">{project.name}</p></div>
-            <div><p className="text-xs text-muted-foreground">Location</p><p className="font-medium">{project.location ?? "—"}</p></div>
-            <div><p className="text-xs text-muted-foreground">Plot Size</p><p className="font-medium">{project.plot_size ?? "—"}</p></div>
-            <div><p className="text-xs text-muted-foreground">Building Area</p><p className="font-medium">{project.building_area ?? "—"}</p></div>
-            <div><p className="text-xs text-muted-foreground">Budget</p><p className="font-medium">{formatINR(project.total_budget)}</p></div>
-            <div><p className="text-xs text-muted-foreground">Days Left</p><p className="font-medium">{daysLeft(project.end_date)}d</p></div>
-            <div><p className="text-xs text-muted-foreground">Start</p><p className="font-medium">{formatDate(project.start_date)}</p></div>
-            <div><p className="text-xs text-muted-foreground">End</p><p className="font-medium">{formatDate(project.end_date)}</p></div>
-          </div>
-        </div>
-      )}
+      <Tabs.Root defaultValue="project" className="flex flex-col flex-1 mt-2">
+        <Tabs.List className="flex border-b border-border bg-white rounded-t-xl overflow-hidden shrink-0">
+          <Tabs.Trigger
+            value="project"
+            className="flex-1 py-3 text-sm font-medium text-muted-foreground data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary transition-all"
+          >
+            Project Info
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            value="team"
+            className="flex-1 py-3 text-sm font-medium text-muted-foreground data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary transition-all"
+          >
+            Team
+          </Tabs.Trigger>
+        </Tabs.List>
 
-      {/* Quick links */}
-      <div className="space-y-2">
-        <Link href="/vendors" className="flex items-center gap-3 bg-white rounded-xl p-4 shadow-sm border border-border">
-          <Users className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <p className="font-medium text-sm text-gray-900">Vendors</p>
-            <p className="text-xs text-muted-foreground">Manage all vendors and payments</p>
-          </div>
-        </Link>
-        <Link href="/phases" className="flex items-center gap-3 bg-white rounded-xl p-4 shadow-sm border border-border">
-          <BarChart3 className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <p className="font-medium text-sm text-gray-900">Phases</p>
-            <p className="text-xs text-muted-foreground">Track construction phases</p>
-          </div>
-        </Link>
-        <div className="flex items-center gap-3 bg-white rounded-xl p-4 shadow-sm border border-border opacity-50">
-          <Settings className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <p className="font-medium text-sm text-gray-900">Reports & Export</p>
-            <p className="text-xs text-muted-foreground">Coming soon</p>
-          </div>
+        <div className="flex-1 bg-white rounded-b-xl border-x border-b border-border overflow-y-auto p-4 mb-safe">
+          <Tabs.Content value="project" className="outline-none h-full">
+            <ProjectInfoTab project={project} />
+          </Tabs.Content>
+          <Tabs.Content value="team" className="outline-none h-full">
+            <TeamTab initialWorkers={workers} />
+          </Tabs.Content>
         </div>
-      </div>
+      </Tabs.Root>
     </div>
   );
 }

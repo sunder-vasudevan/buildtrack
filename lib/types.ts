@@ -118,3 +118,22 @@ export interface Payment {
 export type WindowStatus = "Not Ordered" | "Ordered" | "In Transit" | "Installed" | "Completed";
 export type PhaseStatus = "Not Started" | "In Progress" | "Completed" | "Delayed";
 export type WeatherOption = "Sunny" | "Cloudy" | "Rainy" | "Overcast";
+
+export interface PlanDocument {
+  id: string;
+  project_id: string;
+  title: string;
+  url: string;
+  category: string | null;
+  created_at: string;
+}
+
+export interface Worker {
+  id: string;
+  project_id: string;
+  name: string;
+  role: string | null;
+  phone: string | null;
+  skills: string[] | null;
+  created_at: string;
+}

@@ -6,37 +6,33 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { PhaseRow } from "@/components/dashboard/PhaseRow";
 
 async function getData() {
-  const [projectRes, phasesRes, windowsRes, budgetRes, logsRes] = await Promise.all([
+  const [projectRes, phasesRes, budgetRes, logsRes] = await Promise.all([
     supabase.from("projects").select("*").single(),
     supabase.from("phases").select("*").order("phase_number"),
-    supabase.from("windows").select("id, status"),
     supabase.from("budget_items").select("actual_cost, quoted_cost"),
     supabase.from("daily_logs").select("*").order("log_date", { ascending: false }).limit(3),
   ]);
 
   if (projectRes.error) console.error("Error fetching project:", projectRes.error);
   if (phasesRes.error) console.error("Error fetching phases:", phasesRes.error);
-  if (windowsRes.error) console.error("Error fetching windows:", windowsRes.error);
   if (budgetRes.error) console.error("Error fetching budget:", budgetRes.error);
   if (logsRes.error) console.error("Error fetching logs:", logsRes.error);
 
   return {
     project: projectRes.data as Project | null,
     phases: (phasesRes.data ?? []) as Phase[],
-    windows: (windowsRes.data ?? []) as Pick<Window, "id" | "status">[],
     budgetItems: (budgetRes.data ?? []) as Pick<BudgetItem, "actual_cost" | "quoted_cost">[],
     recentLogs: (logsRes.data ?? []) as DailyLog[],
   };
 }
 
 export default async function DashboardPage() {
-  const { project, phases, windows, budgetItems, recentLogs } = await getData();
+  const { project, phases, budgetItems, recentLogs } = await getData();
 
   const totalBudget = project?.total_budget ?? 21_74_500;
   const spent = budgetItems.reduce((s, i) => s + (i.actual_cost ?? 0), 0);
   const remaining = totalBudget - spent;
   const days = project ? daysLeft(project.end_date) : 0;
-  const windowsInstalled = windows.filter((w) => w.status === "Installed" || w.status === "Completed").length;
 
   const hasOverdue = phases.some(
     (p) => p.status !== "Completed" && new Date(p.end_date) < new Date()
@@ -73,13 +69,6 @@ export default async function DashboardPage() {
           value={days > 0 ? `${days}d` : "Overdue"}
           sub={project ? `Until ${formatDate(project.end_date)}` : "Sep 20, 2026"}
           color="blue"
-        />
-        <StatCard
-          icon={<SquareStack className="h-4 w-4 text-violet-600" />}
-          label="Windows"
-          value={`${windowsInstalled}/9`}
-          sub="Installed"
-          color="violet"
         />
         <StatCard
           icon={<IndianRupee className="h-4 w-4 text-orange-600" />}
