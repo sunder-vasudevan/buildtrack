@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { BudgetItem, Income } from "@/lib/types";
 import { formatINR, formatDate } from "@/lib/utils";
-import { ChevronDown, ChevronUp, PencilLine, Download, Plus, Landmark, ArrowDownToLine, X, Loader2, DollarSign, Wallet } from "lucide-react";
+import { ChevronDown, ChevronUp, PencilLine, Download, Plus, Landmark, ArrowDownToLine, X, Loader2, DollarSign, Wallet, Trash2 } from "lucide-react";
 import { ExpenseForm } from "@/components/finances/ExpenseForm";
 import { supabase } from "@/lib/supabase";
 
@@ -144,6 +144,58 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes }: Fi
     setSavingFunds(false);
   }
 
+  async function handleDeleteExpense(item: BudgetItem) {
+    const isCustom = !item.quoted_cost;
+    const confirmMessage = isCustom
+      ? `Are you sure you want to permanently delete the custom expense "${item.item_name}"?`
+      : `Are you sure you want to reset/delete the logged payment of ${formatINR(item.actual_cost || 0)} for "${item.item_name}"?`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      if (isCustom) {
+        const { error } = await supabase.from("budget_items").delete().eq("id", item.id);
+        if (error) throw error;
+        setItems((prev) => prev.filter((i) => i.id !== item.id));
+      } else {
+        const { error } = await supabase
+          .from("budget_items")
+          .update({
+            actual_cost: null,
+            payment_date: null,
+            status: "Approved",
+            notes: null,
+            receipt_url: null,
+          })
+          .eq("id", item.id);
+        if (error) throw error;
+
+        const { data } = await supabase.from("budget_items").select("*").order("category");
+        if (data) setItems(data as BudgetItem[]);
+      }
+    } catch (err) {
+      console.error("Error deleting expense:", err);
+      alert("Failed to delete. Please try again.");
+    }
+  }
+
+  async function handleDeleteIncome(income: Income) {
+    if (!window.confirm(`Are you sure you want to delete this deposit of ${formatINR(income.amount)} from "${income.source}"?`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("income").delete().eq("id", income.id);
+      if (error) throw error;
+      setIncomes((prev) => prev.filter((i) => i.id !== income.id));
+    } catch (err) {
+      console.error("Error deleting income log:", err);
+      alert("Failed to delete deposit. Please try again.");
+    }
+  }
+
   return (
     <>
       {editingItem && (
@@ -216,12 +268,21 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes }: Fi
                 <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
                   {incomes.map((inc) => (
                     <div key={inc.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-border shadow-sm gap-3">
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-xs font-bold text-gray-900 truncate">{inc.source}</p>
                         <p className="text-[10px] text-muted-foreground mt-0.5">{formatDate(inc.date_received)}</p>
                         {inc.notes && <p className="text-[10px] text-gray-500 mt-1 italic truncate">{inc.notes}</p>}
                       </div>
-                      <p className="text-xs font-extrabold text-emerald-700 font-sans shrink-0">{formatINR(inc.amount)}</p>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <p className="text-xs font-extrabold text-emerald-700 font-sans">{formatINR(inc.amount)}</p>
+                        <button
+                          onClick={() => handleDeleteIncome(inc)}
+                          className="p-1.5 rounded-lg border border-red-100 bg-white hover:bg-red-50 text-red-500 transition-colors active:scale-95"
+                          title="Delete capital log"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -311,6 +372,15 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes }: Fi
                                     >
                                       <PencilLine className="h-3.5 w-3.5" />
                                     </button>
+                                    {(item.actual_cost !== null || !item.quoted_cost) && (
+                                      <button
+                                        onClick={() => handleDeleteExpense(item)}
+                                        className="p-1.5 rounded-lg border border-red-100 bg-white hover:bg-red-50 text-red-500 transition-colors active:scale-95"
+                                        title={!item.quoted_cost ? "Delete custom item" : "Reset/delete payment"}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
 
