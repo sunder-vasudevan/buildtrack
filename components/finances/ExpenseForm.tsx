@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Upload, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { BudgetItem } from "@/lib/types";
@@ -23,7 +23,7 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
   const [form, setForm] = useState({
     item_name: prefillItem?.item_name ?? "",
     category: prefillItem?.category ?? "",
-    amount: prefillItem?.actual_cost ? String(prefillItem.actual_cost) : "",
+    amount: prefillItem?.actual_cost ? String(prefillItem.actual_cost) : (prefillItem?.quoted_cost ? String(prefillItem.quoted_cost) : ""),
     date: new Date().toISOString().split("T")[0],
     worker_name: "",
     notes: "",
@@ -31,6 +31,40 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
+  const [selectedBudgetItemId, setSelectedBudgetItemId] = useState<string>("");
+
+  useEffect(() => {
+    async function loadBudgetItems() {
+      const { data } = await supabase
+        .from("budget_items")
+        .select("*")
+        .order("category")
+        .order("item_name");
+      if (data) {
+        setBudgetItems(data as BudgetItem[]);
+      }
+    }
+    loadBudgetItems();
+  }, []);
+
+  const handleBudgetSelectionChange = (itemId: string) => {
+    setSelectedBudgetItemId(itemId);
+    if (itemId === "") {
+      setForm((p) => ({ ...p, item_name: "", category: "", amount: "" }));
+    } else {
+      const selected = budgetItems.find((item) => item.id === itemId);
+      if (selected) {
+        setForm((p) => ({
+          ...p,
+          item_name: selected.item_name,
+          category: selected.category,
+          amount: selected.quoted_cost ? String(selected.quoted_cost) : (selected.actual_cost ? String(selected.actual_cost) : ""),
+        }));
+      }
+    }
+  };
 
   async function handleSave() {
     if (!form.amount || !form.item_name || !form.category) {
@@ -59,16 +93,23 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
     const { data: project } = await supabase.from("projects").select("id").single();
     const projectId = project?.id;
 
-    if (prefillItem) {
+    const targetId = prefillItem?.id || selectedBudgetItemId;
+
+    if (targetId) {
+      // Find original notes to merge if updating
+      const targetItem = prefillItem || budgetItems.find((item) => item.id === targetId);
+      const originalNotes = targetItem?.notes || "";
+
       // Update existing budget item's actual cost
       await supabase
         .from("budget_items")
         .update({
           actual_cost: Number(form.amount),
           status: "Paid",
-          notes: [prefillItem.notes, form.notes, form.worker_name ? `Worker: ${form.worker_name}` : "", receiptUrl ? `Receipt: ${receiptUrl}` : ""].filter(Boolean).join(" | ") || null,
+          payment_date: form.date,
+          notes: [originalNotes, form.notes, form.worker_name ? `Worker: ${form.worker_name}` : "", receiptUrl ? `Receipt: ${receiptUrl}` : ""].filter(Boolean).join(" | ") || null,
         })
-        .eq("id", prefillItem.id);
+        .eq("id", targetId);
     } else {
       // Insert new budget item as expense
       await supabase.from("budget_items").insert({
@@ -103,12 +144,29 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
           {!prefillItem && (
             <>
               <div>
+                <label className="text-xs font-semibold text-gray-700 block mb-1">Link to Quote / Budget Item</label>
+                <select
+                  value={selectedBudgetItemId}
+                  onChange={(e) => handleBudgetSelectionChange(e.target.value)}
+                  className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white font-medium text-gray-900 focus:ring-2 focus:ring-primary focus:outline-none"
+                >
+                  <option value="">— Create Custom (Non-Budgeted) Expense —</option>
+                  {budgetItems.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      [{item.category}] {item.item_name} {item.quoted_cost ? `(Quote: ₹${item.quoted_cost.toLocaleString()})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <label className="text-xs font-medium text-gray-700 block mb-1">Item / Description *</label>
                 <input
                   type="text"
                   value={form.item_name}
                   onChange={(e) => setForm((p) => ({ ...p, item_name: e.target.value }))}
-                  className="w-full h-12 border border-border rounded-lg px-3 text-sm"
+                  disabled={selectedBudgetItemId !== ""}
+                  className="w-full h-12 border border-border rounded-lg px-3 text-sm disabled:bg-gray-50 disabled:text-gray-500 disabled:border-gray-200"
                   placeholder="e.g. Sand delivery, Labour payment"
                 />
               </div>
@@ -117,7 +175,8 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
                 <select
                   value={form.category}
                   onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
-                  className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white"
+                  disabled={selectedBudgetItemId !== ""}
+                  className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-500 disabled:border-gray-200"
                 >
                   <option value="">Select category</option>
                   {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -126,27 +185,78 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
             </>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Amount (₹) *</label>
-              <input
-                type="number"
-                value={form.amount}
-                onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
-                className="w-full h-12 border border-border rounded-lg px-3 text-sm"
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Date</label>
-              <input
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
-                className="w-full h-12 border border-border rounded-lg px-3 text-sm"
-              />
-            </div>
-          </div>
+          {/* Amount and Date */}
+          {(() => {
+            const selectedItem = prefillItem || budgetItems.find((item) => item.id === selectedBudgetItemId);
+            const rawQuotedCost = selectedItem?.quoted_cost;
+            const quotedCost = rawQuotedCost !== null && rawQuotedCost !== undefined ? rawQuotedCost : undefined;
+            const inputAmount = form.amount ? Number(form.amount) : 0;
+            const isLinked = !!selectedItem;
+            const hasAmount = form.amount !== "";
+            const isOverBudget = isLinked && hasAmount && quotedCost !== undefined && inputAmount > quotedCost;
+            const isUnderOrOnBudget = isLinked && hasAmount && quotedCost !== undefined && inputAmount <= quotedCost;
+            const variance = isLinked && quotedCost !== undefined ? inputAmount - quotedCost : 0;
+
+            let borderClass = "border-border focus:ring-primary";
+            if (isOverBudget) {
+              borderClass = "border-red-300 focus:ring-red-500 text-red-700 bg-red-50/10";
+            } else if (isUnderOrOnBudget) {
+              borderClass = "border-emerald-300 focus:ring-emerald-500 text-emerald-700 bg-emerald-50/10";
+            }
+
+            return (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={`text-xs font-medium block mb-1 ${isOverBudget ? "text-red-600 font-semibold" : (isUnderOrOnBudget ? "text-emerald-700 font-semibold" : "text-gray-700")}`}>
+                      Amount (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      value={form.amount}
+                      onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
+                      className={`w-full h-12 border rounded-lg px-3 text-sm font-sans ${borderClass}`}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 block mb-1">Date</label>
+                    <input
+                      type="date"
+                      value={form.date}
+                      onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
+                      className="w-full h-12 border border-border rounded-lg px-3 text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Real-time Budget Status Indicator */}
+                {isLinked && quotedCost !== undefined && hasAmount && (
+                  <div className="mt-1">
+                    {isOverBudget ? (
+                      <div className="p-3 bg-red-50 rounded-xl border border-red-100 text-red-700 space-y-0.5">
+                        <p className="text-xs font-bold flex items-center gap-1.5">
+                          <span>⚠️ Over Budget!</span>
+                        </p>
+                        <p className="text-[11px] text-red-600">
+                          Quote estimate was <span className="font-semibold">₹{quotedCost.toLocaleString("en-IN")}</span>. You are spending <span className="font-bold">+₹{variance.toLocaleString("en-IN")}</span> more than budgeted.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-emerald-800 space-y-0.5">
+                        <p className="text-xs font-bold flex items-center gap-1.5">
+                          <span>✅ Under/On Budget!</span>
+                        </p>
+                        <p className="text-[11px] text-emerald-700">
+                          Quote estimate was <span className="font-semibold">₹{quotedCost.toLocaleString("en-IN")}</span>. Saving of <span className="font-bold">₹{Math.abs(variance).toLocaleString("en-IN")}</span> compared to budget.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           <div>
             <label className="text-xs font-medium text-gray-700 block mb-1">Worker / Paid To</label>
