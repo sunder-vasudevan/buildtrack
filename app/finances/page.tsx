@@ -41,13 +41,13 @@ export default async function FinancesPage() {
             value="income"
             className="flex-1 py-3 text-sm font-medium text-muted-foreground data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary transition-all"
           >
-            Income
+            Funds
           </Tabs.Trigger>
         </Tabs.List>
 
         <div className="flex-1 bg-white rounded-b-xl border-x border-b border-border overflow-y-auto p-4 mb-safe">
           <Tabs.Content value="budget" className="outline-none h-full">
-            <BudgetClient items={items} totalBudget={totalBudget} />
+            <BudgetClient items={items} totalBudget={totalBudget} incomes={incomes} />
           </Tabs.Content>
           <Tabs.Content value="income" className="outline-none h-full">
             <IncomeTab initialIncome={incomes} />

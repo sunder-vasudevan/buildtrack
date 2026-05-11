@@ -4,7 +4,7 @@ import { useState } from "react";
 import { DailyLog, Phase } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
-import { Plus, X, Image } from "lucide-react";
+import { Plus, X, Image, Upload, Loader2 } from "lucide-react";
 
 const WEATHER_OPTIONS = ["Sunny", "Cloudy", "Rainy", "Overcast", "Hot"];
 const STATUS_OPTIONS = ["In Progress", "On Track", "Delayed", "Completed", "Paused"];
@@ -14,26 +14,32 @@ export function LogsClient({
   phases,
 }: {
   initialLogs: DailyLog[];
-  phases: Pick<Phase, "id" | "name">[];
+  phases: Phase[];
 }) {
   const [logs, setLogs] = useState(initialLogs);
   const [showForm, setShowForm] = useState(false);
   const [viewLog, setViewLog] = useState<DailyLog | null>(null);
   const [saving, setSaving] = useState(false);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [form, setForm] = useState({
     log_date: new Date().toISOString().split("T")[0],
     phase_id: "",
+    deliverable_name: "",
     description: "",
     weather: "Sunny",
     work_status: "In Progress",
     issues: "",
   });
 
+  const [newDeliverable, setNewDeliverable] = useState("");
+  const selectedPhase = phases.find((p) => p.id === form.phase_id);
+  const deliverableOptions = selectedPhase?.deliverables ?? [];
+
   // Get project_id from first log or leave blank
   const projectId = logs[0]?.project_id ?? null;
 
   async function submitLog() {
-    if (!form.description) return;
+    if (!form.phase_id || !form.deliverable_name || !form.description) return;
     setSaving(true);
 
     // Need project_id — fetch it
@@ -43,22 +49,36 @@ export function LogsClient({
       pid = data?.id ?? null;
     }
 
+    // Upload photos to Supabase Storage
+    const uploadedPhotos: { url: string; caption: string }[] = [];
+    for (const file of photoFiles) {
+      const ext = file.name.split(".").pop();
+      const path = `logs/${form.log_date}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("buildtrack-photos").upload(path, file, { upsert: true });
+      if (!upErr) {
+        const { data: urlData } = supabase.storage.from("buildtrack-photos").getPublicUrl(path);
+        uploadedPhotos.push({ url: urlData.publicUrl, caption: "" });
+      }
+    }
+
     const payload = {
       project_id: pid,
       log_date: form.log_date,
       phase_id: form.phase_id || null,
+      deliverable_name: form.deliverable_name || null,
       description: form.description,
       weather: form.weather,
       work_status: form.work_status,
       issues: form.issues || null,
-      photos: [],
+      photos: uploadedPhotos,
     };
 
     const { data, error } = await supabase.from("daily_logs").insert(payload).select().single();
     if (!error && data) {
       setLogs((prev) => [data as DailyLog, ...prev]);
       setShowForm(false);
-      setForm({ log_date: new Date().toISOString().split("T")[0], phase_id: "", description: "", weather: "Sunny", work_status: "In Progress", issues: "" });
+      setPhotoFiles([]);
+      setForm({ log_date: new Date().toISOString().split("T")[0], phase_id: "", deliverable_name: "", description: "", weather: "Sunny", work_status: "In Progress", issues: "" });
     }
     setSaving(false);
   }
@@ -133,11 +153,42 @@ export function LogsClient({
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-700 block mb-1">Phase</label>
-                <select value={form.phase_id} onChange={(e) => setForm((p) => ({ ...p, phase_id: e.target.value }))} className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white">
+                <select value={form.phase_id} onChange={(e) => { setForm((p) => ({ ...p, phase_id: e.target.value, deliverable_name: "" })); setNewDeliverable(""); }} className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white">
                   <option value="">No phase selected</option>
                   {phases.map((ph) => <option key={ph.id} value={ph.id}>{ph.name}</option>)}
                 </select>
               </div>
+              {form.phase_id && (
+                <div>
+                  <label className="text-xs font-medium text-gray-700 block mb-1">Deliverable</label>
+                  <select
+                    value={newDeliverable ? "__new__" : form.deliverable_name}
+                    onChange={(e) => {
+                      if (e.target.value === "__new__") {
+                        setNewDeliverable(" ");
+                        setForm((p) => ({ ...p, deliverable_name: "" }));
+                      } else {
+                        setNewDeliverable("");
+                        setForm((p) => ({ ...p, deliverable_name: e.target.value }));
+                      }
+                    }}
+                    className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white"
+                  >
+                    <option value="">No deliverable selected</option>
+                    {deliverableOptions.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
+                    <option value="__new__">+ Add new deliverable...</option>
+                  </select>
+                  {newDeliverable !== "" && (
+                    <input
+                      type="text"
+                      value={newDeliverable.trim()}
+                      onChange={(e) => { setNewDeliverable(e.target.value); setForm((p) => ({ ...p, deliverable_name: e.target.value })); }}
+                      className="w-full h-10 border border-border rounded-lg px-3 text-sm mt-2"
+                      placeholder="Enter new deliverable name..."
+                    />
+                  )}
+                </div>
+              )}
               <div>
                 <label className="text-xs font-medium text-gray-700 block mb-1">Work Description *</label>
                 <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-3 text-sm resize-none" rows={4} placeholder="What was done today..." />
@@ -160,8 +211,27 @@ export function LogsClient({
                 <label className="text-xs font-medium text-gray-700 block mb-1">Issues (optional)</label>
                 <textarea value={form.issues} onChange={(e) => setForm((p) => ({ ...p, issues: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-3 text-sm resize-none" rows={2} placeholder="Any issues encountered..." />
               </div>
-              <button onClick={submitLog} disabled={saving || !form.description} className="w-full h-12 bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-50">
-                {saving ? "Saving..." : "Save Log"}
+              <div>
+                <label className="text-xs font-medium text-gray-700 block mb-1">Photos</label>
+                <label className="flex items-center gap-3 w-full h-12 border-2 border-dashed border-border rounded-lg px-3 cursor-pointer hover:border-gray-400 transition-colors">
+                  <Upload className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span className="text-sm text-muted-foreground truncate">
+                    {photoFiles.length > 0 ? `${photoFiles.length} photo${photoFiles.length !== 1 ? "s" : ""} selected` : "Tap to add photos"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => setPhotoFiles(Array.from(e.target.files ?? []))}
+                  />
+                </label>
+                {photoFiles.length > 0 && (
+                  <button onClick={() => setPhotoFiles([])} className="text-xs text-red-500 mt-1">Remove all</button>
+                )}
+              </div>
+              <button onClick={submitLog} disabled={saving || !form.phase_id || !form.deliverable_name || !form.description} className="w-full h-12 bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+                {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Save Log"}
               </button>
             </div>
           </div>
@@ -187,6 +257,7 @@ export function LogsClient({
               <div className="grid grid-cols-2 gap-3 text-sm">
                 {viewLog.weather && <div><p className="text-xs text-muted-foreground">Weather</p><p className="font-medium">☁️ {viewLog.weather}</p></div>}
                 {viewLog.work_status && <div><p className="text-xs text-muted-foreground">Status</p><p className="font-medium">{viewLog.work_status}</p></div>}
+                {viewLog.deliverable_name && <div className="col-span-2"><p className="text-xs text-muted-foreground">Deliverable</p><p className="font-medium text-blue-700">{viewLog.deliverable_name}</p></div>}
               </div>
               <div><p className="text-xs text-muted-foreground mb-1">Description</p><p className="text-sm text-gray-800">{viewLog.description}</p></div>
               {viewLog.issues && <div><p className="text-xs text-muted-foreground mb-1">Issues</p><p className="text-sm text-red-700">{viewLog.issues}</p></div>}

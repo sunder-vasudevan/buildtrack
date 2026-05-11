@@ -21,7 +21,7 @@ export interface Phase {
   start_date: string;
   end_date: string;
   status: string;
-  deliverables: string[] | null;
+  deliverables: { name: string; planned_start: string | null; planned_due: string | null; actual_due: string | null }[] | null;
   actual_start_date: string | null;
   actual_end_date: string | null;
   notes: string | null;
@@ -97,6 +97,7 @@ export interface DailyLog {
   photos: { url: string; caption?: string }[] | null;
   issues: string | null;
   resolution: string | null;
+  deliverable_name: string | null;
   created_at: string;
 }
 

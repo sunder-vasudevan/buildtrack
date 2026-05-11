@@ -56,12 +56,17 @@ export default async function DashboardPage() {
     }
   }
 
-  let varianceText = project ? `Until ${formatDate(project.end_date)}` : "Sep 20, 2026";
-  if (hasTracking) {
-    if (scheduleVariance > 0) varianceText = `+${scheduleVariance}d behind schedule`;
-    else if (scheduleVariance < 0) varianceText = `${scheduleVariance}d ahead of schedule`;
-    else varianceText = "Exactly on schedule";
-  }
+  const varianceText = project ? `Until ${formatDate(project.end_date)}` : "Sep 20, 2026";
+  const spentPct = totalBudget > 0 ? (spent / totalBudget) * 100 : 0;
+  const budgetColor = spentPct > 90 ? "red" : spentPct > 70 ? "orange" : "green";
+
+  const varianceBadge = hasTracking
+    ? scheduleVariance > 0
+      ? { text: `+${scheduleVariance}d behind`, color: "red" as const }
+      : scheduleVariance < 0
+      ? { text: `${Math.abs(scheduleVariance)}d ahead`, color: "green" as const }
+      : { text: "On schedule", color: "green" as const }
+    : undefined;
 
   return (
     <div className="p-4 space-y-4">
@@ -73,11 +78,42 @@ export default async function DashboardPage() {
 
 
 
+      {/* Budget Overview */}
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-border space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold text-gray-900">Budget</span>
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+            budgetColor === "red" ? "bg-red-100 text-red-700" :
+            budgetColor === "orange" ? "bg-orange-100 text-orange-700" :
+            "bg-emerald-100 text-emerald-700"
+          }`}>
+            {spentPct.toFixed(0)}% used
+          </span>
+        </div>
+        <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+          <div
+            className={`h-3 rounded-full transition-all ${
+              budgetColor === "red" ? "bg-red-500" :
+              budgetColor === "orange" ? "bg-orange-400" :
+              "bg-emerald-500"
+            }`}
+            style={{ width: `${Math.min(spentPct, 100)}%` }}
+          />
+        </div>
+        <div className="flex justify-between text-xs text-muted-foreground">
+          <span>Spent: <span className="font-semibold text-gray-800">{formatINR(spent)}</span></span>
+          <span>Budget: <span className="font-semibold text-gray-800">{formatINR(totalBudget)}</span></span>
+        </div>
+        {remaining < 0 && (
+          <p className="text-xs font-semibold text-red-600">Over budget by {formatINR(Math.abs(remaining))}</p>
+        )}
+      </div>
+
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-3">
         <StatCard
           icon={<IndianRupee className="h-4 w-4 text-emerald-600" />}
-          label="Total Income"
+          label="Total Funds"
           value={formatINR(totalIncome)}
           sub={totalIncome === 0 ? "No funds added" : "Capital received"}
           color="emerald"
@@ -88,6 +124,7 @@ export default async function DashboardPage() {
           value={days > 0 ? `${days}d` : "Overdue"}
           sub={varianceText}
           color="blue"
+          badge={varianceBadge}
         />
         <StatCard
           icon={<IndianRupee className="h-4 w-4 text-orange-600" />}
@@ -95,6 +132,13 @@ export default async function DashboardPage() {
           value={formatINR(spent)}
           sub={spent === 0 ? "No actuals yet" : "Total to date"}
           color="orange"
+        />
+        <StatCard
+          icon={<IndianRupee className="h-4 w-4 text-purple-600" />}
+          label="Planned"
+          value={formatINR(totalBudget)}
+          sub="Total project budget"
+          color="purple"
         />
       </div>
 

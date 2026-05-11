@@ -14,9 +14,12 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
+  type Deliverable = { name: string; planned_due: string | null; actual_due: string | null };
+
   const [phases, setPhases] = useState(initialPhases);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [editing, setEditing] = useState<Partial<Phase>>({});
+  const [deliverableEdits, setDeliverableEdits] = useState<Record<number, { planned_start?: string; actual_due?: string }>>({});
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const [photos, setPhotos] = useState<Record<string, string>>({});
@@ -49,14 +52,36 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
 
   async function savePhase(id: string) {
     setSaving(true);
+    // Merge deliverable actual_due edits
+    const updatedDeliverables = (editing.deliverables ?? []).map((d, i) => {
+      const edits = deliverableEdits[i];
+      if (!edits) return d;
+      return {
+        ...d,
+        ...(edits.planned_start !== undefined ? { planned_start: edits.planned_start || null } : {}),
+        ...(edits.actual_due !== undefined ? { actual_due: edits.actual_due || null } : {}),
+      };
+    });
+    // Derive actual_start_date from earliest planned_start, actual_end_date from latest planned_due
+    const plannedStarts = updatedDeliverables.map((d) => d.planned_start).filter(Boolean) as string[];
+    const plannedDues = updatedDeliverables.map((d) => d.planned_due).filter(Boolean) as string[];
+    const derivedActualStart = plannedStarts.length > 0 ? plannedStarts.sort()[0] : editing.actual_start_date ?? null;
+    const derivedActualEnd = plannedDues.length > 0 ? plannedDues.sort().at(-1)! : editing.actual_end_date ?? null;
+    const payload = {
+      ...editing,
+      deliverables: updatedDeliverables,
+      actual_start_date: derivedActualStart,
+      actual_end_date: derivedActualEnd,
+    };
     const { data, error } = await supabase
       .from("phases")
-      .update(editing)
+      .update(payload)
       .eq("id", id)
       .select()
       .single();
     if (!error && data) {
       setPhases((prev) => prev.map((p) => (p.id === id ? (data as Phase) : p)));
+      setDeliverableEdits({});
     }
     setSaving(false);
   }
@@ -112,7 +137,8 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
               <button
                 onClick={() => {
                   setExpanded(isOpen ? null : phase.id);
-                  setEditing({ status: phase.status, actual_start_date: phase.actual_start_date, actual_end_date: phase.actual_end_date, notes: phase.notes });
+                  setEditing({ status: phase.status, actual_start_date: phase.actual_start_date, actual_end_date: phase.actual_end_date, notes: phase.notes, deliverables: phase.deliverables });
+                  setDeliverableEdits({});
                 }}
                 className="w-full p-4 text-left"
               >
@@ -147,18 +173,45 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
                           const targetKey = `${phase.id}_${i}`;
                           const isUploading = uploading === targetKey;
                           const photoUrl = photos[targetKey];
+                          const actualDueVal = deliverableEdits[i]?.actual_due !== undefined ? deliverableEdits[i].actual_due! : (d.actual_due ?? "");
+                          const plannedStartVal = deliverableEdits[i]?.planned_start !== undefined ? deliverableEdits[i].planned_start! : (d.planned_start ?? "");
+                          const isLate = d.planned_due && !actualDueVal && new Date(d.planned_due) < new Date();
 
                           return (
                             <div key={i} className="flex flex-col gap-2 p-3 bg-gray-50 rounded-lg border border-border">
                               <div className="flex items-start gap-2 text-sm">
-                                {phase.status === "Completed" ? (
+                                {actualDueVal ? (
                                   <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0 mt-0.5" />
                                 ) : (
-                                  <Circle className="h-4 w-4 text-gray-300 flex-shrink-0 mt-0.5" />
+                                  <Circle className={`h-4 w-4 flex-shrink-0 mt-0.5 ${isLate ? "text-red-300" : "text-gray-300"}`} />
                                 )}
-                                <span className="text-gray-700 flex-1 leading-snug">
-                                  {d} <span className="text-muted-foreground text-xs block mt-1">Due: {formatDate(phase.end_date)}</span>
-                                </span>
+                                <span className="text-gray-700 flex-1 leading-snug font-medium">{d.name}</span>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2 pl-6">
+                                <div>
+                                  <p className="text-[10px] text-muted-foreground mb-0.5">Planned start</p>
+                                  <input
+                                    type="date"
+                                    value={plannedStartVal}
+                                    onChange={(e) => setDeliverableEdits((prev) => ({ ...prev, [i]: { ...prev[i], planned_start: e.target.value } }))}
+                                    className="w-full h-8 border border-border rounded-md px-2 text-xs bg-white"
+                                  />
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-muted-foreground mb-0.5">Planned due</p>
+                                  <p className={`text-xs font-medium pt-1.5 ${isLate ? "text-red-600" : "text-gray-700"}`}>
+                                    {d.planned_due ? formatDate(d.planned_due) : "—"}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-muted-foreground mb-0.5">Actual due</p>
+                                  <input
+                                    type="date"
+                                    value={actualDueVal}
+                                    onChange={(e) => setDeliverableEdits((prev) => ({ ...prev, [i]: { ...prev[i], actual_due: e.target.value } }))}
+                                    className="w-full h-8 border border-border rounded-md px-2 text-xs bg-white"
+                                  />
+                                </div>
                               </div>
                               
                               {/* Photo Upload & Display */}

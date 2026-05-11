@@ -1,12 +1,66 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { PlanDocument } from "@/lib/types";
-import { FileText, Download, Plus, Image as ImageIcon } from "lucide-react";
+import { FileText, Download, Plus, Image as ImageIcon, X, Loader2, Upload } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+
+const PLAN_CATEGORIES = ["Floor Plan", "Elevation", "Electrical", "Plumbing", "Structural", "Interior", "Landscape", "Other"];
 
 export function PlansTab({ initialPlans }: { initialPlans: PlanDocument[] }) {
-  const [plans] = useState<PlanDocument[]>(initialPlans);
+  const [plans, setPlans] = useState<PlanDocument[]>(initialPlans);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [form, setForm] = useState({ title: "", category: "" });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleUpload() {
+    if (!file || !form.title) {
+      setError("Title and file are required.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+
+    const ext = file.name.split(".").pop();
+    const path = `plans/${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from("buildtrack-photos")
+      .upload(path, file, { upsert: true });
+
+    if (uploadError) {
+      setError("Upload failed. Try again.");
+      setSaving(false);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from("buildtrack-photos").getPublicUrl(path);
+    const { data: project } = await supabase.from("projects").select("id").single();
+
+    const { data, error: insertError } = await supabase
+      .from("documents")
+      .insert({
+        project_id: project?.id,
+        title: form.title,
+        url: urlData.publicUrl,
+        category: form.category || null,
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      setError("Saved file but failed to record. Try again.");
+    } else if (data) {
+      setPlans((prev) => [data as PlanDocument, ...prev]);
+      setShowForm(false);
+      setForm({ title: "", category: "" });
+      setFile(null);
+    }
+    setSaving(false);
+  }
 
   return (
     <div className="p-4 space-y-4">
@@ -15,7 +69,10 @@ export function PlansTab({ initialPlans }: { initialPlans: PlanDocument[] }) {
           <h2 className="text-lg font-bold text-gray-900">Plans & Specs</h2>
           <p className="text-sm text-muted-foreground">{plans.length} documents</p>
         </div>
-        <button className="flex items-center gap-1.5 h-10 px-4 bg-gray-900 text-white rounded-xl text-sm font-medium">
+        <button
+          onClick={() => setShowForm(true)}
+          className="flex items-center gap-1.5 h-10 px-4 bg-gray-900 text-white rounded-xl text-sm font-medium"
+        >
           <Plus className="h-4 w-4" /> Upload
         </button>
       </div>
@@ -48,6 +105,67 @@ export function PlansTab({ initialPlans }: { initialPlans: PlanDocument[] }) {
               </a>
             </div>
           ))}
+        </div>
+      )}
+
+      {showForm && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center">
+          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-border sticky top-0 bg-white rounded-t-2xl flex items-center justify-between">
+              <h2 className="font-bold text-gray-900">Upload Plan / Document</h2>
+              <button onClick={() => setShowForm(false)} className="p-2 text-muted-foreground"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="p-4 space-y-4">
+              {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg p-3">{error}</p>}
+              <div>
+                <label className="text-xs font-medium text-gray-700 block mb-1">Title *</label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+                  className="w-full h-12 border border-border rounded-lg px-3 text-sm"
+                  placeholder="e.g. Ground Floor Plan, Elevation - Front"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-700 block mb-1">Category</label>
+                <select
+                  value={form.category}
+                  onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
+                  className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white"
+                >
+                  <option value="">Select category</option>
+                  {PLAN_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-700 block mb-1">File *</label>
+                <label className="flex items-center gap-3 w-full h-12 border-2 border-dashed border-border rounded-lg px-3 cursor-pointer hover:border-gray-400 transition-colors">
+                  <Upload className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span className="text-sm text-muted-foreground truncate">
+                    {file ? file.name : "Tap to upload image or PDF"}
+                  </span>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,.pdf"
+                    className="hidden"
+                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+                {file && (
+                  <button onClick={() => setFile(null)} className="text-xs text-red-500 mt-1">Remove</button>
+                )}
+              </div>
+              <button
+                onClick={handleUpload}
+                disabled={saving}
+                className="w-full h-12 bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading...</> : "Upload"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { BudgetItem } from "@/lib/types";
+import { BudgetItem, Income } from "@/lib/types";
 import { formatINR } from "@/lib/utils";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, PencilLine, Download } from "lucide-react";
+import { ExpenseForm } from "@/components/finances/ExpenseForm";
 
 function groupByCategory(items: BudgetItem[]) {
   return items.reduce<Record<string, BudgetItem[]>>((acc, item) => {
@@ -14,9 +15,46 @@ function groupByCategory(items: BudgetItem[]) {
   }, {});
 }
 
-export function BudgetClient({ items, totalBudget }: { items: BudgetItem[]; totalBudget: number }) {
+function exportCSV(items: BudgetItem[], incomes: Income[]) {
+  const rows: string[] = [];
+  rows.push("Type,Category,Item,Quoted (₹),Actual (₹),Status,Date,Notes");
+  for (const i of items) {
+    rows.push([
+      "Expense",
+      i.category,
+      i.item_name,
+      i.quoted_cost ?? "",
+      i.actual_cost ?? "",
+      i.status ?? "",
+      i.payment_date ?? "",
+      (i.notes ?? "").replace(/,/g, " "),
+    ].join(","));
+  }
+  rows.push("");
+  rows.push("Type,Source,Amount (₹),Date Received,Notes");
+  for (const inc of incomes) {
+    rows.push([
+      "Income",
+      inc.source,
+      inc.amount,
+      inc.date_received ?? "",
+      (inc.notes ?? "").replace(/,/g, " "),
+    ].join(","));
+  }
+  const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `vasudha-finances-${new Date().toISOString().split("T")[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function BudgetClient({ items: initialItems, totalBudget, incomes = [] }: { items: BudgetItem[]; totalBudget: number; incomes?: Income[] }) {
+  const [items, setItems] = useState(initialItems);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [filterCat, setFilterCat] = useState<string>("all");
+  const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
 
   const spent = items.reduce((s, i) => s + (i.actual_cost ?? 0), 0);
   const remaining = totalBudget - spent;
@@ -33,10 +71,30 @@ export function BudgetClient({ items, totalBudget }: { items: BudgetItem[]; tota
   const filteredCategories = filterCat === "all" ? categories : [filterCat];
 
   return (
+    <>
+    {editingItem && (
+      <ExpenseForm
+        prefillItem={editingItem}
+        onClose={() => setEditingItem(null)}
+        onSaved={() => {
+          setItems((prev) => prev.map((i) => i.id === editingItem.id ? { ...i, actual_cost: editingItem.actual_cost, status: "Paid" } : i));
+          setEditingItem(null);
+          window.location.reload();
+        }}
+      />
+    )}
     <div className="p-4 space-y-4">
-      <div className="pt-4">
-        <h1 className="text-xl font-bold text-gray-900">Budget</h1>
-        <p className="text-sm text-muted-foreground">{items.length} line items</p>
+      <div className="pt-4 flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Budget</h1>
+          <p className="text-sm text-muted-foreground">{items.length} line items</p>
+        </div>
+        <button
+          onClick={() => exportCSV(items, incomes)}
+          className="flex items-center gap-1.5 h-9 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-medium transition-colors"
+        >
+          <Download className="h-3.5 w-3.5" /> Export
+        </button>
       </div>
 
       {/* Summary cards */}
@@ -135,9 +193,17 @@ export function BudgetClient({ items, totalBudget }: { items: BudgetItem[]; tota
                       <div key={item.id} className="px-4 py-3">
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-medium text-gray-800 flex-1">{item.item_name}</p>
-                          {item.status && (
-                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{item.status}</span>
-                          )}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {item.status && (
+                              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{item.status}</span>
+                            )}
+                            <button
+                              onClick={() => setEditingItem(item)}
+                              className="p-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-muted-foreground"
+                            >
+                              <PencilLine className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
                         <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
                           <div>
@@ -155,6 +221,7 @@ export function BudgetClient({ items, totalBudget }: { items: BudgetItem[]; tota
                             </p>
                           </div>
                         </div>
+                        {item.notes && <p className="text-xs text-muted-foreground mt-1.5 line-clamp-1">{item.notes}</p>}
                       </div>
                     );
                   })}
@@ -165,5 +232,6 @@ export function BudgetClient({ items, totalBudget }: { items: BudgetItem[]; tota
         })}
       </div>
     </div>
+    </>
   );
 }

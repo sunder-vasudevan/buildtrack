@@ -1,28 +1,24 @@
 import { supabase } from "@/lib/supabase";
 import * as Tabs from "@radix-ui/react-tabs";
-import { Phase, Vendor, DailyLog } from "@/lib/types";
+import { Phase, DailyLog, PlanDocument } from "@/lib/types";
 import { PhasesClient } from "@/components/tracker/PhasesTab";
 import { LogsClient } from "@/components/tracker/LogsTab";
 import { PlansTab } from "@/components/tracker/PlansTab";
-import { PlanDocument } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function TrackerPage() {
-  const [phasesRes, vendorsRes, logsRes, plansRes] = await Promise.all([
+  const [phasesRes, logsRes, plansRes] = await Promise.all([
     supabase.from("phases").select("*").order("phase_number"),
-    supabase.from("vendors").select("id, vendor_name").order("vendor_name"),
     supabase.from("daily_logs").select("*").order("log_date", { ascending: false }),
     supabase.from("documents").select("*").order("created_at", { ascending: false }),
   ]);
 
   if (phasesRes.error) console.error(phasesRes.error);
-  if (vendorsRes.error) console.error(vendorsRes.error);
   if (logsRes.error) console.error(logsRes.error);
   if (plansRes.error) console.error(plansRes.error);
 
   const phases = (phasesRes.data ?? []) as Phase[];
-  const vendors = (vendorsRes.data ?? []) as Pick<Vendor, "id" | "vendor_name">[];
   const logs = (logsRes.data ?? []) as DailyLog[];
   const plans = (plansRes.data ?? []) as PlanDocument[];
 
