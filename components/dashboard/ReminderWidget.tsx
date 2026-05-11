@@ -4,11 +4,15 @@ import { useState, useMemo, useEffect } from "react";
 import { Reminder } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
-import { Bell, AlertCircle, Clock, Calendar, Check, ChevronDown } from "lucide-react";
+import { Bell, AlertCircle, Clock, Calendar, Check, ChevronDown, Loader2 } from "lucide-react";
 
 export function ReminderWidget({ initialReminders }: { initialReminders: Reminder[] }) {
   const [reminders, setReminders] = useState<Reminder[]>(initialReminders);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const [completedReminders, setCompletedReminders] = useState<Reminder[]>([]);
+  const [showCompleted, setShowCompleted] = useState(false);
+  const [isLoadingCompleted, setIsLoadingCompleted] = useState(false);
 
   const getLocalTodayStr = () => {
     const d = new Date();
@@ -43,8 +47,29 @@ export function ReminderWidget({ initialReminders }: { initialReminders: Reminde
     return { overdue, today, upcoming };
   }, [reminders, todayStr]);
 
+  async function fetchCompletedReminders() {
+    setIsLoadingCompleted(true);
+    const { data } = await supabase
+      .from("reminders")
+      .select("*")
+      .eq("done", true)
+      .order("due_date", { ascending: false })
+      .limit(15);
+    if (data) {
+      setCompletedReminders(data as Reminder[]);
+    }
+    setIsLoadingCompleted(false);
+  }
+
   async function handleMarkDone(id: string) {
-    // Optimistic update
+    const item = reminders.find((r) => r.id === id);
+    if (item) {
+      setCompletedReminders((prev) => [
+        { ...item, done: true },
+        ...prev.slice(0, 14),
+      ]);
+    }
+
     setReminders((prev) => prev.filter((r) => r.id !== id));
 
     const { error } = await supabase
@@ -57,6 +82,24 @@ export function ReminderWidget({ initialReminders }: { initialReminders: Reminde
     }
   }
 
+  async function handleReopenReminder(id: string) {
+    const item = completedReminders.find((r) => r.id === id);
+    if (item) {
+      setReminders((prev) => [...prev, { ...item, done: false }].sort((a, b) => (a.due_date ?? "") > (b.due_date ?? "") ? 1 : -1));
+    }
+
+    setCompletedReminders((prev) => prev.filter((r) => r.id !== id));
+
+    const { error } = await supabase
+      .from("reminders")
+      .update({ done: false })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error reopening reminder:", error);
+    }
+  }
+
   // Subscribe to real-time changes
   useEffect(() => {
     const channel = supabase
@@ -65,14 +108,25 @@ export function ReminderWidget({ initialReminders }: { initialReminders: Reminde
         "postgres_changes",
         { event: "*", schema: "public", table: "reminders" },
         async () => {
-          // Fetch updated incomplete reminders
-          const { data } = await supabase
+          const { data: incomplete } = await supabase
             .from("reminders")
             .select("*")
             .eq("done", false)
             .order("due_date", { ascending: true });
-          if (data) {
-            setReminders(data as Reminder[]);
+          if (incomplete) {
+            setReminders(incomplete as Reminder[]);
+          }
+
+          if (showCompleted) {
+            const { data: done } = await supabase
+              .from("reminders")
+              .select("*")
+              .eq("done", true)
+              .order("due_date", { ascending: false })
+              .limit(15);
+            if (done) {
+              setCompletedReminders(done as Reminder[]);
+            }
           }
         }
       )
@@ -81,7 +135,7 @@ export function ReminderWidget({ initialReminders }: { initialReminders: Reminde
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [showCompleted]);
 
   const totalCount = reminders.length;
 
@@ -190,6 +244,59 @@ export function ReminderWidget({ initialReminders }: { initialReminders: Reminde
               )}
             </div>
           )}
+
+          {/* Completed Reminders Toggle Section */}
+          <div className="pt-3 border-t border-border/40">
+            <button
+              type="button"
+              onClick={() => {
+                const nextState = !showCompleted;
+                setShowCompleted(nextState);
+                if (nextState) {
+                  fetchCompletedReminders();
+                }
+              }}
+              className="w-full flex items-center justify-between text-xs font-semibold text-gray-500 hover:text-gray-950 transition-colors py-1 focus:outline-none"
+            >
+              <span>{showCompleted ? "Hide Completed Tasks" : "Show Completed Tasks"}</span>
+              <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-sans">
+                Completed
+              </span>
+            </button>
+
+            {showCompleted && (
+              <div className="mt-3 space-y-2">
+                {isLoadingCompleted ? (
+                  <div className="flex items-center justify-center py-4 text-xs text-muted-foreground gap-1.5">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> Loading completed list...
+                  </div>
+                ) : completedReminders.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground italic text-center py-2">No completed tasks yet.</p>
+                ) : (
+                  completedReminders.map((r) => (
+                    <div key={r.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-gray-50/50 gap-3 group opacity-75 hover:opacity-100 transition-opacity">
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <Check className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm text-gray-500 line-through break-words whitespace-normal leading-normal">{r.text}</p>
+                          {r.due_date && (
+                            <p className="text-[10px] text-muted-foreground font-sans mt-0.5">Completed</p>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleReopenReminder(r.id); }}
+                        className="text-[10px] font-bold text-primary hover:underline px-2.5 py-1 bg-white border border-border rounded-md shadow-sm active:scale-95 transition-all shrink-0"
+                        title="Re-open task"
+                      >
+                        Re-open
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
