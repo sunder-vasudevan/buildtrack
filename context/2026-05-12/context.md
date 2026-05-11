@@ -60,3 +60,14 @@ To maximize structural efficiency and eliminate redundant page tabs on phone dis
 * **On-Demand Compiles:** Export spreadsheet builders query database layers dynamically *only* when the corresponding button is clicked. This ensures pages load instantly (0ms setup delay).
 * **Bottom Bar Notification Badge:** `BottomNav.tsx` registers a Supabase Realtime Channel listener on the `reminders` table to compute pending alerts due today or overdue. Automatically rendering a pulsing red notification pill over the Overview tab icon.
 * **Interactive Modals:** Quick add actions (such as logging custom daily updates, adding expense transactions, uploading files) are triggered using client modals keeping pages lightweight.
+
+---
+
+## 5. Universal UI Architectural Guideline: Accordions by Default
+As a fundamental architectural rule for Buildtrack (or any adjacent mobile-first application developed within this workspace):
+* **The Accordion Rule:** Any secondary data grouping, multi-field category, sub-ledger checklist, document vault, or configuration segment MUST be implemented as a collapsible vertical accordion block by default.
+* **Rationale & UX Drivers:**
+  1. **Reduces Scroll Fatigue:** Limits height expansion on compact mobile viewports, allowing users to scan high-level structures at a glance.
+  2. **Eliminates Complex Subtabs:** Offers quick on-demand exploration without requiring separate page routes or tab bars.
+  3. **Interaction Consistency:** Guarantees uniform tactile muscle-memory across all core features (Tracker, Finances, and Project Info all utilize the exact same accordion indicators).
+
