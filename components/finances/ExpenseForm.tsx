@@ -323,60 +323,69 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
         <div className="p-4 space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg p-3">{error}</p>}
 
-          {!prefillItem && (
-            <>
-              <div>
-                <label className="text-xs font-semibold text-gray-700 block mb-1">Link to Quote / Budget Item</label>
-                <button
-                  type="button"
-                  onClick={() => setShowSelector(true)}
-                  className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white font-semibold text-gray-900 flex items-center justify-between hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-primary focus:outline-none"
-                >
-                  {(() => {
-                    const selectedItem = budgetItems.find((item) => item.id === selectedBudgetItemId);
-                    if (selectedItem) {
-                      return (
-                        <div className="flex flex-col items-start min-w-0">
-                          <span className="text-[9px] text-muted-foreground uppercase font-extrabold leading-none mb-0.5">
-                            {selectedItem.category}
-                          </span>
-                          <span className="text-sm font-bold text-gray-900 truncate max-w-full">
-                            {selectedItem.item_name}
-                          </span>
-                        </div>
-                      );
-                    }
-                    return <span className="text-muted-foreground font-medium">— Tap to search / link a Quote —</span>;
-                  })()}
-                  <ChevronDown className="h-4.5 w-4.5 text-gray-400 shrink-0" />
-                </button>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-gray-700 block mb-1">Item / Description *</label>
-                <input
-                  type="text"
-                  value={form.item_name}
-                  onChange={(e) => setForm((p) => ({ ...p, item_name: e.target.value }))}
-                  disabled={selectedBudgetItemId !== ""}
-                  className="w-full h-12 border border-border rounded-lg px-3 text-sm disabled:bg-gray-50 disabled:text-gray-500 disabled:border-gray-200"
-                  placeholder="e.g. Sand delivery, Labour payment"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-700 block mb-1">Category *</label>
-                <select
-                  value={form.category}
-                  onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
-                  disabled={selectedBudgetItemId !== ""}
-                  className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-500 disabled:border-gray-200"
-                >
-                  <option value="">Select category</option>
-                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-            </>
+          {/* Link to Quote Selection */}
+          {!prefillItem ? (
+            <div>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Link to Quote / Budget Item</label>
+              <button
+                type="button"
+                onClick={() => setShowSelector(true)}
+                className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white font-semibold text-gray-900 flex items-center justify-between hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-primary focus:outline-none"
+              >
+                {(() => {
+                  const selectedItem = budgetItems.find((item) => item.id === selectedBudgetItemId);
+                  if (selectedItem) {
+                    return (
+                      <div className="flex flex-col items-start min-w-0">
+                        <span className="text-[9px] text-muted-foreground uppercase font-extrabold leading-none mb-0.5">
+                          {selectedItem.category}
+                        </span>
+                        <span className="text-sm font-bold text-gray-900 truncate max-w-full">
+                          {selectedItem.item_name}
+                        </span>
+                      </div>
+                    );
+                  }
+                  return <span className="text-muted-foreground font-medium">— Tap to search / link a Quote —</span>;
+                })()}
+                <ChevronDown className="h-4.5 w-4.5 text-gray-400 shrink-0" />
+              </button>
+            </div>
+          ) : (
+            <div className="bg-blue-50/50 rounded-xl p-3 border border-blue-100 flex flex-col gap-0.5">
+              <span className="text-[9px] font-extrabold uppercase tracking-wider text-blue-700">Linked Estimate Quote</span>
+              <span className="text-sm font-bold text-blue-950">{prefillItem.item_name}</span>
+            </div>
           )}
+
+          {/* Description Input (Always Visible & Editable) */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">Item / Description *</label>
+            <input
+              type="text"
+              value={form.item_name}
+              onChange={(e) => setForm((p) => ({ ...p, item_name: e.target.value }))}
+              className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white text-gray-900 font-semibold focus:ring-2 focus:ring-primary focus:outline-none"
+              placeholder="e.g. Sand delivery, Labour payment"
+            />
+          </div>
+
+          {/* Category Selection (Always Visible & Editable) */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">Category *</label>
+            <select
+              value={form.category}
+              onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
+              className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white text-gray-900 font-semibold focus:ring-2 focus:ring-primary focus:outline-none"
+            >
+              <option value="">Select category</option>
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Amount and Date */}
           {(() => {
