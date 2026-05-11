@@ -10,7 +10,7 @@ const CATEGORIES = [
   "Roofing", "Windows & Doors", "Electrical (MEP)", "Plumbing (MEP)",
   "Sanitary & Fixtures", "Flooring & Tiles", "Granite & Marble",
   "Painting & Finishing", "Carpentry & Woodwork", "Solar & Energy",
-  "Professional Fees", "Hardware & Fasteners", "Other",
+  "Professional Fees", "Hardware & Fasteners", "Misc/Unplanned",
 ];
 
 interface ExpenseFormProps {
@@ -63,7 +63,13 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
   const groupedItems = useMemo(() => {
     const groups: Record<string, typeof budgetItems> = {};
     filteredBudgetItems.forEach((item) => {
-      const cat = item.category || "Other";
+      let cat = item.category || "Other";
+      if (cat === "Vendor Quotes" || cat === "Additional Items") {
+        cat = "Vendor Quotes & Additional Items";
+      }
+      if (cat === "Other" || cat === "Others") {
+        cat = "Misc/Unplanned";
+      }
       if (!groups[cat]) {
         groups[cat] = [];
       }

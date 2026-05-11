@@ -43,8 +43,17 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes }: Fi
 
   const grouped = useMemo(() => {
     return items.reduce<Record<string, BudgetItem[]>>((acc, item) => {
-      if (!acc[item.category]) acc[item.category] = [];
-      acc[item.category].push(item);
+      let cat = item.category || "Other";
+      if (cat === "Vendor Quotes" || cat === "Additional Items") {
+        cat = "Vendor Quotes & Additional Items";
+      }
+      if (cat === "Other" || cat === "Others") {
+        cat = "Misc/Unplanned";
+      }
+      if (!acc[cat]) {
+        acc[cat] = [];
+      }
+      acc[cat].push(item);
       return acc;
     }, {});
   }, [items]);
@@ -345,7 +354,7 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes }: Fi
                         <div>
                           <p className="font-bold text-sm text-gray-900">{cat}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            {formatINR(catQuoted)} target · {catActual > 0 ? formatINR(catActual) + " paid" : "No actuals yet"}
+                            {formatINR(catQuoted)} estimate · {catActual > 0 ? formatINR(catActual) + " paid" : "No actuals yet"}
                           </p>
                         </div>
                         {isOpen ? <ChevronUp className="h-4.5 w-4.5 text-gray-400" /> : <ChevronDown className="h-4.5 w-4.5 text-gray-400" />}
@@ -386,7 +395,7 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes }: Fi
 
                                 <div className="grid grid-cols-3 gap-2 text-xs pt-1 border-t border-gray-50">
                                   <div>
-                                    <p className="text-[10px] text-muted-foreground">Target</p>
+                                    <p className="text-[10px] text-muted-foreground">Estimate</p>
                                     <p className="font-semibold text-gray-800 font-sans mt-0.5">{formatINR(item.quoted_cost)}</p>
                                   </div>
                                   <div>
