@@ -327,7 +327,7 @@ export function QuickAddModal() {
               </div>
               <div className="grid gap-3 py-2">
                 <button
-                  onClick={() => { setOpen(false); setTimeout(() => setScreen("log"), 50); }}
+                  onClick={() => setScreen("log")}
                   className="flex items-center gap-4 bg-gray-50 hover:bg-gray-100 p-4 rounded-xl border border-border text-left transition-colors"
                 >
                   <div className="bg-blue-100 p-3 rounded-full"><PencilLine className="h-6 w-6 text-blue-700" /></div>
@@ -337,7 +337,7 @@ export function QuickAddModal() {
                   </div>
                 </button>
                 <button
-                  onClick={() => { setOpen(false); setTimeout(() => setScreen("expense"), 50); }}
+                  onClick={() => setScreen("expense")}
                   className="flex items-center gap-4 bg-gray-50 hover:bg-gray-100 p-4 rounded-xl border border-border text-left transition-colors"
                 >
                   <div className="bg-emerald-100 p-3 rounded-full"><Receipt className="h-6 w-6 text-emerald-700" /></div>
@@ -347,7 +347,7 @@ export function QuickAddModal() {
                   </div>
                 </button>
                 <button
-                  onClick={() => { setOpen(false); setTimeout(() => setScreen("funds"), 50); }}
+                  onClick={() => setScreen("funds")}
                   className="flex items-center gap-4 bg-gray-50 hover:bg-gray-100 p-4 rounded-xl border border-border text-left transition-colors"
                 >
                   <div className="bg-orange-100 p-3 rounded-full"><Landmark className="h-6 w-6 text-orange-700" /></div>
@@ -357,7 +357,7 @@ export function QuickAddModal() {
                   </div>
                 </button>
                 <button
-                  onClick={() => { setOpen(false); setTimeout(() => setScreen("reminder"), 50); }}
+                  onClick={() => setScreen("reminder")}
                   className="flex items-center gap-4 bg-gray-50 hover:bg-gray-100 p-4 rounded-xl border border-border text-left transition-colors"
                 >
                   <div className="bg-purple-100 p-3 rounded-full"><Bell className="h-6 w-6 text-purple-700" /></div>
