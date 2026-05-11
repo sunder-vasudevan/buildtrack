@@ -181,8 +181,8 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[85vh] sm:max-h-[90vh] overflow-y-auto relative">
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-white w-full sm:max-w-lg rounded-2xl max-h-[80vh] overflow-y-auto relative shadow-2xl">
         <div className="p-4 border-b border-border sticky top-0 bg-white rounded-t-2xl flex items-center justify-between">
           <h2 className="font-bold text-gray-900">
             {prefillItem ? `Log Actual — ${prefillItem.item_name}` : "Add Expense"}
@@ -192,7 +192,7 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
 
         {/* Search Overlay Selector */}
         {showSelector && (
-          <div className="absolute inset-0 z-50 bg-white flex flex-col rounded-t-2xl sm:rounded-2xl">
+          <div className="absolute inset-0 z-50 bg-white flex flex-col rounded-2xl">
             <div className="p-4 border-b border-border flex items-center justify-between shrink-0 bg-white sticky top-0 rounded-t-2xl">
               <div className="flex flex-col">
                 <h3 className="font-bold text-base text-gray-900">Link Quote / Estimate</h3>

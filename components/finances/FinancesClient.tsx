@@ -430,8 +430,8 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes }: Fi
 
       {/* Inline Modal Form to Add Capital Funds */}
       {showFundsForm && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center">
-          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white w-full sm:max-w-lg rounded-2xl max-h-[80vh] overflow-y-auto shadow-2xl">
             <div className="p-4 border-b border-border sticky top-0 bg-white rounded-t-2xl flex items-center justify-between">
               <h2 className="font-bold text-gray-900">Record Received Funds</h2>
               <button onClick={() => setShowFundsForm(false)} className="p-2 text-muted-foreground hover:bg-gray-100 rounded-full transition-colors">
