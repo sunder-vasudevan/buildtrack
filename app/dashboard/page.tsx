@@ -38,7 +38,7 @@ export default async function DashboardPage() {
     <div className="p-4 space-y-4">
       {/* Header */}
       <div className="pt-4 pb-2">
-        <h1 className="text-xl font-bold text-gray-900">BuildTrack</h1>
+        <h1 className="text-xl font-bold text-gray-900">Vasudha</h1>
         <p className="text-sm text-muted-foreground">Farmhouse — Hyderabad</p>
       </div>
 
