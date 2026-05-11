@@ -52,16 +52,24 @@ export default async function MorePage() {
           </Tabs.Trigger>
         </Tabs.List>
 
-        <div className="flex-1 bg-white rounded-b-xl border-x border-b border-border overflow-y-auto p-4 mb-safe">
-          <Tabs.Content value="project" className="outline-none h-full">
-            <ProjectInfoTab project={project} />
-          </Tabs.Content>
-          <Tabs.Content value="team" className="outline-none h-full">
-            <TeamTab initialWorkers={workers} />
-          </Tabs.Content>
-          <Tabs.Content value="windows" className="outline-none h-full">
-            <WindowsClient initialWindows={windows} />
-          </Tabs.Content>
+        <div className="flex-1 bg-white rounded-b-xl border-x border-b border-border overflow-y-auto p-4 mb-safe flex flex-col justify-between">
+          <div>
+            <Tabs.Content value="project" className="outline-none h-full">
+              <ProjectInfoTab project={project} />
+            </Tabs.Content>
+            <Tabs.Content value="team" className="outline-none h-full">
+              <TeamTab initialWorkers={workers} />
+            </Tabs.Content>
+            <Tabs.Content value="windows" className="outline-none h-full">
+              <WindowsClient initialWindows={windows} />
+            </Tabs.Content>
+          </div>
+
+          {/* Footer */}
+          <div className="pt-8 pb-16 text-center space-y-1 shrink-0">
+            <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">Vasudha Mobile Hub</p>
+            <p className="text-xs text-muted-foreground">v1.2.0 · Built in Hyderabad with ❤️</p>
+          </div>
         </div>
       </Tabs.Root>
     </div>
