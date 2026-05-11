@@ -66,8 +66,7 @@ export default async function MorePage() {
           </div>
 
           {/* Footer */}
-          <div className="pt-8 pb-16 text-center space-y-1 shrink-0">
-            <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">Vasudha Mobile Hub</p>
+          <div className="pt-8 pb-16 text-center shrink-0">
             <p className="text-xs text-muted-foreground">v1.2.0 · Built in Hyderabad with ❤️</p>
           </div>
         </div>
