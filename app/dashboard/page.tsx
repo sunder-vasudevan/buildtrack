@@ -4,6 +4,7 @@ import { BudgetItem, DailyLog, Project, Income, Phase, Reminder, Window } from "
 import { CalendarDays, IndianRupee } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ReminderWidget } from "@/components/dashboard/ReminderWidget";
+import { RecentActivityWidget } from "@/components/dashboard/RecentActivityWidget";
 
 async function getData() {
   const [projectRes, budgetRes, logsRes, incomeRes, phasesRes, remindersRes, windowsRes] = await Promise.all([
@@ -169,20 +170,7 @@ export default async function DashboardPage() {
 
 
       {/* Recent logs */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-border space-y-3">
-        <h2 className="font-semibold text-sm text-gray-900">Recent Activity</h2>
-        {recentLogs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No logs yet. Start tracking daily progress.</p>
-        ) : (
-          recentLogs.map((log) => (
-            <div key={log.id} className="border-l-2 border-blue-200 pl-3 py-1">
-              <p className="text-xs text-muted-foreground">{formatDate(log.log_date)}</p>
-              <p className="text-sm text-gray-800 line-clamp-2">{log.description ?? "No description"}</p>
-              {log.weather && <p className="text-xs text-muted-foreground mt-0.5">☀️ {log.weather}</p>}
-            </div>
-          ))
-        )}
-      </div>
+      <RecentActivityWidget recentLogs={recentLogs} />
 
       {/* Footer */}
       <div className="pt-8 pb-16 text-center shrink-0">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Upload, Loader2 } from "lucide-react";
+import { X, Upload, Loader2, Search, ChevronDown } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { BudgetItem } from "@/lib/types";
 
@@ -34,6 +34,8 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
 
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
   const [selectedBudgetItemId, setSelectedBudgetItemId] = useState<string>("");
+  const [showSelector, setShowSelector] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     async function loadBudgetItems() {
@@ -48,6 +50,14 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
     }
     loadBudgetItems();
   }, []);
+
+  const filteredBudgetItems = searchQuery.trim()
+    ? budgetItems.filter(
+        (item) =>
+          item.item_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          item.category.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : budgetItems;
 
   const handleBudgetSelectionChange = (itemId: string) => {
     setSelectedBudgetItemId(itemId);
@@ -130,13 +140,126 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center">
-      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[92vh] overflow-y-auto">
+      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[92vh] overflow-y-auto relative">
         <div className="p-4 border-b border-border sticky top-0 bg-white rounded-t-2xl flex items-center justify-between">
           <h2 className="font-bold text-gray-900">
             {prefillItem ? `Log Actual — ${prefillItem.item_name}` : "Add Expense"}
           </h2>
           <button onClick={onClose} className="p-2 text-muted-foreground"><X className="h-4 w-4" /></button>
         </div>
+
+        {/* Search Overlay Selector */}
+        {showSelector && (
+          <div className="absolute inset-0 z-50 bg-white flex flex-col rounded-t-2xl sm:rounded-2xl">
+            <div className="p-4 border-b border-border flex items-center justify-between shrink-0 bg-white sticky top-0 rounded-t-2xl">
+              <div className="flex flex-col">
+                <h3 className="font-bold text-base text-gray-900">Link Quote / Estimate</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Select a budgeted quote to track actual spending</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSelector(false)}
+                className="p-2 hover:bg-gray-100 rounded-full text-muted-foreground transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="p-4 border-b border-border bg-gray-50/50 shrink-0">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search quotes, materials, category..."
+                  className="w-full h-11 border border-border rounded-lg pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white text-gray-900 font-medium"
+                  autoFocus
+                />
+                <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-gray-400" />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3.5 top-3 h-5 w-5 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Scrollable list */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-gray-50/20">
+              {/* Option to create custom expense */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleBudgetSelectionChange("");
+                  setShowSelector(false);
+                }}
+                className={`w-full p-3.5 rounded-xl border text-left flex items-center justify-between transition-all ${
+                  selectedBudgetItemId === ""
+                    ? "border-primary bg-blue-50/20 shadow-sm"
+                    : "border-border bg-white hover:bg-gray-50"
+                }`}
+              >
+                <div>
+                  <p className="font-bold text-sm text-primary">Create Custom Expense</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Log a custom, non-budgeted payment</p>
+                </div>
+                {selectedBudgetItemId === "" && <div className="h-2 w-2 rounded-full bg-primary" />}
+              </button>
+
+              <div className="pt-2 pb-1">
+                <p className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Active Vendor Quotes</p>
+              </div>
+
+              {filteredBudgetItems.length === 0 ? (
+                <div className="py-8 text-center">
+                  <p className="text-sm font-medium text-gray-900">No matching quotes found</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Try searching for another keyword</p>
+                </div>
+              ) : (
+                filteredBudgetItems.map((item) => {
+                  const isSelected = selectedBudgetItemId === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        handleBudgetSelectionChange(item.id);
+                        setShowSelector(false);
+                      }}
+                      className={`w-full p-3.5 rounded-xl border text-left flex items-start justify-between gap-4 transition-all ${
+                        isSelected
+                          ? "border-primary bg-blue-50/20 shadow-sm"
+                          : "border-border bg-white hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <span className="inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 mb-1.5">
+                          {item.category}
+                        </span>
+                        <h4 className="font-bold text-sm text-gray-900 break-words leading-tight">{item.item_name}</h4>
+                        {item.notes && (
+                          <p className="text-xs text-muted-foreground line-clamp-1 mt-1">{item.notes}</p>
+                        )}
+                      </div>
+                      {item.quoted_cost && (
+                        <div className="text-right shrink-0">
+                          <span className="text-xs font-bold px-2 py-1 bg-blue-50 text-blue-700 rounded-lg font-sans">
+                            ₹{item.quoted_cost.toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="p-4 space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg p-3">{error}</p>}
@@ -145,18 +268,29 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
             <>
               <div>
                 <label className="text-xs font-semibold text-gray-700 block mb-1">Link to Quote / Budget Item</label>
-                <select
-                  value={selectedBudgetItemId}
-                  onChange={(e) => handleBudgetSelectionChange(e.target.value)}
-                  className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white font-medium text-gray-900 focus:ring-2 focus:ring-primary focus:outline-none"
+                <button
+                  type="button"
+                  onClick={() => setShowSelector(true)}
+                  className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white font-semibold text-gray-900 flex items-center justify-between hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-primary focus:outline-none"
                 >
-                  <option value="">— Create Custom (Non-Budgeted) Expense —</option>
-                  {budgetItems.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      [{item.category}] {item.item_name} {item.quoted_cost ? `(Quote: ₹${item.quoted_cost.toLocaleString()})` : ""}
-                    </option>
-                  ))}
-                </select>
+                  {(() => {
+                    const selectedItem = budgetItems.find((item) => item.id === selectedBudgetItemId);
+                    if (selectedItem) {
+                      return (
+                        <div className="flex flex-col items-start min-w-0">
+                          <span className="text-[9px] text-muted-foreground uppercase font-extrabold leading-none mb-0.5">
+                            {selectedItem.category}
+                          </span>
+                          <span className="text-sm font-bold text-gray-900 truncate max-w-full">
+                            {selectedItem.item_name}
+                          </span>
+                        </div>
+                      );
+                    }
+                    return <span className="text-muted-foreground font-medium">— Tap to search / link a Quote —</span>;
+                  })()}
+                  <ChevronDown className="h-4.5 w-4.5 text-gray-400 shrink-0" />
+                </button>
               </div>
 
               <div>
