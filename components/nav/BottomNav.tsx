@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Wallet, MoreHorizontal, Kanban } from "lucide-react";
+import { LayoutDashboard, Wallet, Building2, Kanban } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QuickAddModal } from "@/components/ui/QuickAddModal";
 import { supabase } from "@/lib/supabase";
@@ -15,7 +15,7 @@ const tabsLeft = [
 
 const tabsRight = [
   { href: "/finances", label: "Finances", icon: Wallet },
-  { href: "/more", label: "More", icon: MoreHorizontal },
+  { href: "/more", label: "Project Info", icon: Building2 },
 ];
 
 function NavLink({ href, label, icon: Icon, active, badgeCount }: any) {

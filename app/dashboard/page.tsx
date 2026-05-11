@@ -1,18 +1,19 @@
 import { supabase } from "@/lib/supabase";
 import { formatINR, daysLeft, formatDate } from "@/lib/utils";
-import { BudgetItem, DailyLog, Project, Income, Phase, Reminder } from "@/lib/types";
+import { BudgetItem, DailyLog, Project, Income, Phase, Reminder, Window } from "@/lib/types";
 import { CalendarDays, IndianRupee } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ReminderWidget } from "@/components/dashboard/ReminderWidget";
 
 async function getData() {
-  const [projectRes, budgetRes, logsRes, incomeRes, phasesRes, remindersRes] = await Promise.all([
+  const [projectRes, budgetRes, logsRes, incomeRes, phasesRes, remindersRes, windowsRes] = await Promise.all([
     supabase.from("projects").select("*").single(),
     supabase.from("budget_items").select("actual_cost, quoted_cost"),
     supabase.from("daily_logs").select("*").order("log_date", { ascending: false }).limit(3),
     supabase.from("income").select("amount"),
     supabase.from("phases").select("*").order("phase_number"),
     supabase.from("reminders").select("*").eq("done", false).order("due_date", { ascending: true }),
+    supabase.from("windows").select("*").order("window_id"),
   ]);
 
   if (projectRes.error) console.error("Error fetching project:", projectRes.error);
@@ -21,6 +22,7 @@ async function getData() {
   if (incomeRes.error && incomeRes.error.code !== "42P01") console.error("Error fetching income:", incomeRes.error);
   if (phasesRes.error) console.error("Error fetching phases:", phasesRes.error);
   if (remindersRes.error) console.error("Error fetching reminders:", remindersRes.error);
+  if (windowsRes.error) console.error("Error fetching windows:", windowsRes.error);
 
   return {
     project: projectRes.data as Project | null,
@@ -29,11 +31,12 @@ async function getData() {
     incomes: (incomeRes.data ?? []) as Pick<Income, "amount">[],
     phases: (phasesRes.data ?? []) as Phase[],
     reminders: (remindersRes.data ?? []) as Reminder[],
+    windows: (windowsRes.data ?? []) as Window[],
   };
 }
 
 export default async function DashboardPage() {
-  const { project, budgetItems, recentLogs, incomes, phases, reminders } = await getData();
+  const { project, budgetItems, recentLogs, incomes, phases, reminders, windows } = await getData();
 
   const totalBudget = project?.total_budget ?? 21_74_500;
   const spent = budgetItems.reduce((s, i) => s + (i.actual_cost ?? 0), 0);

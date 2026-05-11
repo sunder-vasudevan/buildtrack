@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { BudgetItem, DailyLog, Income, Phase, Project, Window } from "@/lib/types";
+import { BudgetItem, DailyLog, Income, Phase, Project, Window, PlanDocument } from "@/lib/types";
 import { formatINR, formatDate, daysLeft } from "@/lib/utils";
-import { Building2, Download, Loader2, Settings } from "lucide-react";
+import { Building2, Download, Loader2, Settings, ChevronDown, ChevronUp, Grid, FileText } from "lucide-react";
+import { WindowsClient } from "@/components/tracker/WindowsTab";
+import { PlansTab } from "@/components/tracker/PlansTab";
 
 type ExportKey = "expenses" | "funds" | "status" | "logs";
 
@@ -52,8 +54,11 @@ function exportExcel(filename: string, rows: Record<string, unknown>[]) {
   triggerDownload(filename, html, "application/vnd.ms-excel;charset=utf-8");
 }
 
-export function ProjectInfoTab({ project }: { project: Project | null }) {
+export function ProjectInfoTab({ project, initialWindows, initialPlans }: { project: Project | null; initialWindows?: Window[]; initialPlans?: PlanDocument[] }) {
   const [loading, setLoading] = useState(false);
+  const [windowsExpanded, setWindowsExpanded] = useState(false);
+  const [plansExpanded, setPlansExpanded] = useState(false);
+  const [settingsExpanded, setSettingsExpanded] = useState(false);
 
   async function fetchAndExport(dataset: ExportKey, format: "csv" | "excel") {
     if (!project) return;
@@ -187,6 +192,7 @@ export function ProjectInfoTab({ project }: { project: Project | null }) {
 
   return (
     <div className="p-4 space-y-4">
+      {/* Section 1: Project details card */}
       <div className="bg-white rounded-xl p-4 shadow-sm border border-border space-y-3">
         <h2 className="font-semibold text-sm text-gray-900 flex items-center gap-2">
           <Building2 className="h-4.5 w-4.5 text-gray-500" /> Project Details
@@ -203,70 +209,137 @@ export function ProjectInfoTab({ project }: { project: Project | null }) {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-border">
-          <div className="flex items-start gap-3">
-            <Settings className="h-5 w-5 text-muted-foreground mt-0.5" />
-            <div className="flex-1 space-y-3">
+      {/* Section 2: Windows Accordion Block */}
+      {initialWindows && (
+        <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+          <button
+            onClick={() => setWindowsExpanded(!windowsExpanded)}
+            className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50/50 transition-colors"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                <Grid className="h-4.5 w-4.5" />
+              </div>
               <div>
-                <p className="font-medium text-sm text-gray-900">Settings & Export</p>
-                <p className="text-xs text-muted-foreground">
-                  Download project data as CSV or Excel.
+                <p className="font-bold text-sm text-gray-900">Windows Ordering & Delivery</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Track delivery & installation for {initialWindows.length} frames
                 </p>
               </div>
+            </div>
+            {windowsExpanded ? <ChevronUp className="h-5 w-5 text-gray-400" /> : <ChevronDown className="h-5 w-5 text-gray-400" />}
+          </button>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => fetchAndExportAll("csv")}
-                  disabled={loading}
-                  className="h-8 px-3 rounded-md text-xs font-semibold bg-white border border-border hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Export All CSV
-                </button>
-                <button
-                  onClick={() => fetchAndExportAll("excel")}
-                  disabled={loading}
-                  className="h-8 px-3 rounded-md text-xs font-semibold bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 flex items-center gap-1"
-                >
-                  <Download className="h-3 w-3" /> Export All Excel
-                </button>
+          {windowsExpanded && (
+            <div className="border-t border-border bg-gray-50/10 p-2">
+              <WindowsClient initialWindows={initialWindows} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Section 2.5: Plans & Drawings Accordion Block */}
+      {initialPlans && (
+        <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+          <button
+            onClick={() => setPlansExpanded(!plansExpanded)}
+            className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50/50 transition-colors"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
+                <FileText className="h-4.5 w-4.5" />
               </div>
+              <div>
+                <p className="font-bold text-sm text-gray-900">Blueprint Plans & Drawings</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Manage engineering designs and PDF documents
+                </p>
+              </div>
+            </div>
+            {plansExpanded ? <ChevronUp className="h-5 w-5 text-gray-400" /> : <ChevronDown className="h-5 w-5 text-gray-400" />}
+          </button>
 
-              {loading ? (
-                <div className="flex items-center gap-2 text-xs text-blue-700 font-semibold bg-blue-50/50 p-3 rounded-lg border border-blue-100 animate-pulse">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Fetching & compiling database export... please wait.
-                </div>
-              ) : (
-                <div className="space-y-2 pt-1">
-                  {([
-                    { key: "expenses", label: "Expenses" },
-                    { key: "funds", label: "Funds" },
-                    { key: "status", label: "Status" },
-                    { key: "logs", label: "Logs" },
-                  ] as { key: ExportKey; label: string }[]).map((item) => (
-                    <div key={item.key} className="flex items-center justify-between gap-2 bg-gray-50/50 rounded-lg px-3 py-2 border border-border">
-                      <span className="text-xs font-semibold text-gray-700">{item.label}</span>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => fetchAndExport(item.key, "csv")}
-                          className="h-8 px-2.5 rounded-md text-xs font-medium bg-white border border-border hover:bg-gray-50"
-                        >
-                          CSV
-                        </button>
-                        <button
-                          onClick={() => fetchAndExport(item.key, "excel")}
-                          className="h-8 px-2.5 rounded-md text-xs font-medium bg-gray-900 text-white hover:bg-gray-800 flex items-center gap-1"
-                        >
-                          <Download className="h-3 w-3" /> Excel
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+          {plansExpanded && (
+            <div className="border-t border-border bg-gray-50/10 p-2">
+              <PlansTab initialPlans={initialPlans} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Section 3: Settings & Export Accordion Block */}
+      <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+        <button
+          onClick={() => setSettingsExpanded(!settingsExpanded)}
+          className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50/50 transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-lg bg-gray-100 text-gray-700 flex items-center justify-center shrink-0">
+              <Settings className="h-4.5 w-4.5" />
+            </div>
+            <div>
+              <p className="font-bold text-sm text-gray-900">Settings & Export</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Download project database tables as CSV or Excel
+              </p>
             </div>
           </div>
-        </div>
+          {settingsExpanded ? <ChevronUp className="h-5 w-5 text-gray-400" /> : <ChevronDown className="h-5 w-5 text-gray-400" />}
+        </button>
+
+        {settingsExpanded && (
+          <div className="border-t border-border bg-gray-50/30 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => fetchAndExportAll("csv")}
+                disabled={loading}
+                className="h-8 px-3 rounded-md text-xs font-semibold bg-white border border-border hover:bg-gray-50 disabled:opacity-50"
+              >
+                Export All CSV
+              </button>
+              <button
+                onClick={() => fetchAndExportAll("excel")}
+                disabled={loading}
+                className="h-8 px-3 rounded-md text-xs font-semibold bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 flex items-center gap-1"
+              >
+                <Download className="h-3 w-3" /> Export All Excel
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="flex items-center gap-2 text-xs text-blue-700 font-semibold bg-blue-50/50 p-3 rounded-lg border border-blue-100 animate-pulse">
+                <Loader2 className="h-4 w-4 animate-spin" /> Fetching & compiling database export... please wait.
+              </div>
+            ) : (
+              <div className="space-y-2 pt-1">
+                {([
+                  { key: "expenses", label: "Expenses" },
+                  { key: "funds", label: "Funds" },
+                  { key: "status", label: "Status" },
+                  { key: "logs", label: "Logs" },
+                ] as { key: ExportKey; label: string }[]).map((item) => (
+                  <div key={item.key} className="flex items-center justify-between gap-2 bg-white rounded-lg px-3 py-2 border border-border">
+                    <span className="text-xs font-semibold text-gray-700">{item.label}</span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => fetchAndExport(item.key, "csv")}
+                        className="h-8 px-2.5 rounded-md text-xs font-medium bg-white border border-border hover:bg-gray-50"
+                      >
+                        CSV
+                      </button>
+                      <button
+                        onClick={() => fetchAndExport(item.key, "excel")}
+                        className="h-8 px-2.5 rounded-md text-xs font-medium bg-gray-900 text-white hover:bg-gray-800 flex items-center gap-1"
+                      >
+                        <Download className="h-3 w-3" /> Excel
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
