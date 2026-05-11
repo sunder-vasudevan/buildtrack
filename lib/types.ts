@@ -137,3 +137,13 @@ export interface Worker {
   skills: string[] | null;
   created_at: string;
 }
+
+export interface Income {
+  id: string;
+  project_id: string;
+  amount: number;
+  source: string;
+  date_received: string;
+  notes: string | null;
+  created_at: string;
+}

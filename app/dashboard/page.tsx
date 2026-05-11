@@ -1,42 +1,38 @@
 import { supabase } from "@/lib/supabase";
 import { formatINR, daysLeft, formatDate } from "@/lib/utils";
-import { Phase, Window, BudgetItem, DailyLog, Project } from "@/lib/types";
-import { AlertTriangle, CalendarDays, IndianRupee, SquareStack } from "lucide-react";
+import { BudgetItem, DailyLog, Project, Income } from "@/lib/types";
+import { CalendarDays, IndianRupee } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
-import { PhaseRow } from "@/components/dashboard/PhaseRow";
 
 async function getData() {
-  const [projectRes, phasesRes, budgetRes, logsRes] = await Promise.all([
+  const [projectRes, budgetRes, logsRes, incomeRes] = await Promise.all([
     supabase.from("projects").select("*").single(),
-    supabase.from("phases").select("*").order("phase_number"),
     supabase.from("budget_items").select("actual_cost, quoted_cost"),
     supabase.from("daily_logs").select("*").order("log_date", { ascending: false }).limit(3),
+    supabase.from("income").select("amount"),
   ]);
 
   if (projectRes.error) console.error("Error fetching project:", projectRes.error);
-  if (phasesRes.error) console.error("Error fetching phases:", phasesRes.error);
   if (budgetRes.error) console.error("Error fetching budget:", budgetRes.error);
   if (logsRes.error) console.error("Error fetching logs:", logsRes.error);
+  if (incomeRes.error && incomeRes.error.code !== "42P01") console.error("Error fetching income:", incomeRes.error);
 
   return {
     project: projectRes.data as Project | null,
-    phases: (phasesRes.data ?? []) as Phase[],
     budgetItems: (budgetRes.data ?? []) as Pick<BudgetItem, "actual_cost" | "quoted_cost">[],
     recentLogs: (logsRes.data ?? []) as DailyLog[],
+    incomes: (incomeRes.data ?? []) as Pick<Income, "amount">[],
   };
 }
 
 export default async function DashboardPage() {
-  const { project, phases, budgetItems, recentLogs } = await getData();
+  const { project, budgetItems, recentLogs, incomes } = await getData();
 
   const totalBudget = project?.total_budget ?? 21_74_500;
   const spent = budgetItems.reduce((s, i) => s + (i.actual_cost ?? 0), 0);
+  const totalIncome = incomes.reduce((s, i) => s + (i.amount ?? 0), 0);
   const remaining = totalBudget - spent;
   const days = project ? daysLeft(project.end_date) : 0;
-
-  const hasOverdue = phases.some(
-    (p) => p.status !== "Completed" && new Date(p.end_date) < new Date()
-  );
 
   return (
     <div className="p-4 space-y-4">
@@ -46,21 +42,15 @@ export default async function DashboardPage() {
         <p className="text-sm text-muted-foreground">Farmhouse — Hyderabad</p>
       </div>
 
-      {/* Alert banner */}
-      {hasOverdue && (
-        <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl p-3">
-          <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0" />
-          <p className="text-sm text-red-700 font-medium">One or more phases are overdue</p>
-        </div>
-      )}
+
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-3">
         <StatCard
           icon={<IndianRupee className="h-4 w-4 text-emerald-600" />}
-          label="Remaining"
-          value={formatINR(remaining)}
-          sub={`of ${formatINR(totalBudget)}`}
+          label="Total Income"
+          value={formatINR(totalIncome)}
+          sub={totalIncome === 0 ? "No funds added" : "Capital received"}
           color="emerald"
         />
         <StatCard
@@ -79,13 +69,6 @@ export default async function DashboardPage() {
         />
       </div>
 
-      {/* Phase progress */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-border space-y-3">
-        <h2 className="font-semibold text-sm text-gray-900">Phase Progress</h2>
-        {phases.map((phase) => (
-          <PhaseRow key={phase.id} phase={phase} />
-        ))}
-      </div>
 
       {/* Recent logs */}
       <div className="bg-white rounded-xl p-4 shadow-sm border border-border space-y-3">

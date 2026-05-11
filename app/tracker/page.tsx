@@ -1,8 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import * as Tabs from "@radix-ui/react-tabs";
-import { Phase, Window, Vendor, DailyLog } from "@/lib/types";
+import { Phase, Vendor, DailyLog } from "@/lib/types";
 import { PhasesClient } from "@/components/tracker/PhasesTab";
-import { WindowsClient } from "@/components/tracker/WindowsTab";
 import { LogsClient } from "@/components/tracker/LogsTab";
 import { PlansTab } from "@/components/tracker/PlansTab";
 import { PlanDocument } from "@/lib/types";
@@ -10,22 +9,19 @@ import { PlanDocument } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 export default async function TrackerPage() {
-  const [phasesRes, windowsRes, vendorsRes, logsRes, plansRes] = await Promise.all([
+  const [phasesRes, vendorsRes, logsRes, plansRes] = await Promise.all([
     supabase.from("phases").select("*").order("phase_number"),
-    supabase.from("windows").select("*").order("window_id"),
     supabase.from("vendors").select("id, vendor_name").order("vendor_name"),
     supabase.from("daily_logs").select("*").order("log_date", { ascending: false }),
     supabase.from("documents").select("*").order("created_at", { ascending: false }),
   ]);
 
   if (phasesRes.error) console.error(phasesRes.error);
-  if (windowsRes.error) console.error(windowsRes.error);
   if (vendorsRes.error) console.error(vendorsRes.error);
   if (logsRes.error) console.error(logsRes.error);
   if (plansRes.error) console.error(plansRes.error);
 
   const phases = (phasesRes.data ?? []) as Phase[];
-  const windows = (windowsRes.data ?? []) as Window[];
   const vendors = (vendorsRes.data ?? []) as Pick<Vendor, "id" | "vendor_name">[];
   const logs = (logsRes.data ?? []) as DailyLog[];
   const plans = (plansRes.data ?? []) as PlanDocument[];
@@ -45,12 +41,6 @@ export default async function TrackerPage() {
             Phases
           </Tabs.Trigger>
           <Tabs.Trigger
-            value="windows"
-            className="flex-1 py-3 text-sm font-medium text-muted-foreground data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary transition-all"
-          >
-            Windows
-          </Tabs.Trigger>
-          <Tabs.Trigger
             value="logs"
             className="flex-1 py-3 text-sm font-medium text-muted-foreground data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary transition-all"
           >
@@ -67,9 +57,6 @@ export default async function TrackerPage() {
         <div className="flex-1 bg-white rounded-b-xl border-x border-b border-border overflow-y-auto p-4 mb-safe">
           <Tabs.Content value="phases" className="outline-none h-full">
             <PhasesClient initialPhases={phases} />
-          </Tabs.Content>
-          <Tabs.Content value="windows" className="outline-none h-full">
-            <WindowsClient initialWindows={windows} vendors={vendors} />
           </Tabs.Content>
           <Tabs.Content value="logs" className="outline-none h-full">
             <LogsClient initialLogs={logs} phases={phases} />

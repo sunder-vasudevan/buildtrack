@@ -1,25 +1,31 @@
 import { supabase } from "@/lib/supabase";
 import * as Tabs from "@radix-ui/react-tabs";
-import { Project, Worker } from "@/lib/types";
+import { Project, Worker, Window, Vendor } from "@/lib/types";
 import { ProjectInfoTab } from "@/components/more/ProjectInfoTab";
 import { TeamTab } from "@/components/more/TeamTab";
+import { WindowsClient } from "@/components/tracker/WindowsTab";
 
 export const dynamic = "force-dynamic";
 
 export default async function MorePage() {
-  const [projectRes, workersRes] = await Promise.all([
+  const [projectRes, workersRes, windowsRes, vendorsRes] = await Promise.all([
     supabase.from("projects").select("*").single(),
     supabase.from("workers").select("*").order("name"),
+    supabase.from("windows").select("*").order("window_id"),
+    supabase.from("vendors").select("id, vendor_name").order("vendor_name"),
   ]);
 
   if (projectRes.error) console.error("Error fetching project:", projectRes.error);
   if (workersRes.error && workersRes.error.code !== "42P01") {
-    // Ignore 42P01 (relation does not exist) as the table might not be created yet in dev
     console.error("Error fetching workers:", workersRes.error);
   }
+  if (windowsRes.error) console.error("Error fetching windows:", windowsRes.error);
+  if (vendorsRes.error) console.error("Error fetching vendors:", vendorsRes.error);
 
   const project = projectRes.data as Project | null;
   const workers = (workersRes.data ?? []) as Worker[];
+  const windows = (windowsRes.data ?? []) as Window[];
+  const vendors = (vendorsRes.data ?? []) as Pick<Vendor, "id" | "vendor_name">[];
 
   return (
     <div className="p-4 flex flex-col h-[calc(100vh-4rem)]">
@@ -41,6 +47,12 @@ export default async function MorePage() {
           >
             Team
           </Tabs.Trigger>
+          <Tabs.Trigger
+            value="windows"
+            className="flex-1 py-3 text-sm font-medium text-muted-foreground data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary transition-all"
+          >
+            Windows
+          </Tabs.Trigger>
         </Tabs.List>
 
         <div className="flex-1 bg-white rounded-b-xl border-x border-b border-border overflow-y-auto p-4 mb-safe">
@@ -49,6 +61,9 @@ export default async function MorePage() {
           </Tabs.Content>
           <Tabs.Content value="team" className="outline-none h-full">
             <TeamTab initialWorkers={workers} />
+          </Tabs.Content>
+          <Tabs.Content value="windows" className="outline-none h-full">
+            <WindowsClient initialWindows={windows} vendors={vendors} />
           </Tabs.Content>
         </div>
       </Tabs.Root>

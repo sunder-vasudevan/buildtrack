@@ -1,7 +1,7 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { Plus, X, PencilLine, AppWindow, Receipt } from "lucide-react";
+import { Plus, X, PencilLine, AppWindow, Receipt, Landmark } from "lucide-react";
 import { useState } from "react";
 
 export function QuickAddModal() {
@@ -43,6 +43,13 @@ export function QuickAddModal() {
               <div>
                 <h4 className="font-semibold text-gray-900 text-base">Update Window</h4>
                 <p className="text-sm text-muted-foreground">Change window status</p>
+              </div>
+            </button>
+            <button className="flex items-center gap-4 bg-gray-50 hover:bg-gray-100 p-4 rounded-xl border border-border text-left transition-colors" onClick={() => setOpen(false)}>
+              <div className="bg-orange-100 p-3 rounded-full"><Landmark className="h-6 w-6 text-orange-700" /></div>
+              <div>
+                <h4 className="font-semibold text-gray-900 text-base">Add Income / Funding</h4>
+                <p className="text-sm text-muted-foreground">Record received capital</p>
               </div>
             </button>
           </div>

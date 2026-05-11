@@ -1,25 +1,27 @@
 import { supabase } from "@/lib/supabase";
 import * as Tabs from "@radix-ui/react-tabs";
-import { BudgetItem, Vendor } from "@/lib/types";
 import { BudgetClient } from "@/components/finances/BudgetTab";
-import { VendorsClient } from "@/components/finances/VendorsTab";
+import { IncomeTab } from "@/components/finances/IncomeTab";
+import { Income, BudgetItem } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function FinancesPage() {
-  const [budgetRes, projectRes, vendorsRes] = await Promise.all([
+  const [budgetRes, projectRes, incomeRes] = await Promise.all([
     supabase.from("budget_items").select("*").order("category"),
     supabase.from("projects").select("total_budget").single(),
-    supabase.from("vendors").select("*").order("vendor_name"),
+    supabase.from("income").select("*").order("date_received", { ascending: false }),
   ]);
 
   if (budgetRes.error) console.error(budgetRes.error);
   if (projectRes.error) console.error(projectRes.error);
-  if (vendorsRes.error) console.error(vendorsRes.error);
+  if (incomeRes.error && incomeRes.error.code !== "42P01") {
+    console.error(incomeRes.error);
+  }
 
   const items = (budgetRes.data ?? []) as BudgetItem[];
   const totalBudget = (projectRes.data?.total_budget as number) ?? 2174500;
-  const vendors = (vendorsRes.data ?? []) as Vendor[];
+  const incomes = (incomeRes.data ?? []) as Income[];
 
   return (
     <div className="p-4 flex flex-col h-[calc(100vh-4rem)]">
@@ -36,10 +38,10 @@ export default async function FinancesPage() {
             Budget
           </Tabs.Trigger>
           <Tabs.Trigger
-            value="vendors"
+            value="income"
             className="flex-1 py-3 text-sm font-medium text-muted-foreground data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary transition-all"
           >
-            Vendors
+            Income
           </Tabs.Trigger>
         </Tabs.List>
 
@@ -47,8 +49,8 @@ export default async function FinancesPage() {
           <Tabs.Content value="budget" className="outline-none h-full">
             <BudgetClient items={items} totalBudget={totalBudget} />
           </Tabs.Content>
-          <Tabs.Content value="vendors" className="outline-none h-full">
-            <VendorsClient vendors={vendors} />
+          <Tabs.Content value="income" className="outline-none h-full">
+            <IncomeTab initialIncome={incomes} />
           </Tabs.Content>
         </div>
       </Tabs.Root>
