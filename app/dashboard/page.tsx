@@ -5,6 +5,7 @@ import { CalendarDays, IndianRupee } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ReminderWidget } from "@/components/dashboard/ReminderWidget";
 import { RecentActivityWidget } from "@/components/dashboard/RecentActivityWidget";
+import { UpcomingDeliverablesWidget } from "@/components/dashboard/UpcomingDeliverablesWidget";
 
 async function getData() {
   const [projectRes, budgetRes, logsRes, incomeRes, phasesRes, remindersRes, windowsRes] = await Promise.all([
@@ -163,6 +164,10 @@ export default async function DashboardPage() {
           <p className="text-[10px] font-semibold text-red-600">🚨 Site actual expenses exceed capital received by {formatINR(spent - totalIncome)}</p>
         )}
       </div>
+
+
+      {/* Upcoming Deliverables Widget */}
+      <UpcomingDeliverablesWidget phases={phases} />
 
 
       {/* Reminders widget */}
