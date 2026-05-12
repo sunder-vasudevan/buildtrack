@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { DailyLog, Phase } from "@/lib/types";
-import { formatDate } from "@/lib/utils";
+import { formatDate, parseLogDescription } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { Plus, X, Image, Upload, Loader2 } from "lucide-react";
 
@@ -29,6 +29,8 @@ export function LogsClient({
     weather: "Sunny",
     work_status: "In Progress",
     issues: "",
+    category: "Labour",
+    no_of_labour: "",
   });
 
   const [newDeliverable, setNewDeliverable] = useState("");
@@ -61,12 +63,16 @@ export function LogsClient({
       }
     }
 
+    const categoryTag = form.category ? `[Category: ${form.category}]` : "";
+    const labourTag = (form.category === "Labour" && form.no_of_labour) ? `[Labour: ${form.no_of_labour}]` : "";
+    const fullDescription = `${categoryTag}${labourTag} ${form.description}`.trim();
+
     const payload = {
       project_id: pid,
       log_date: form.log_date,
       phase_id: form.phase_id || null,
       deliverable_name: form.deliverable_name || null,
-      description: form.description,
+      description: fullDescription,
       weather: form.weather,
       work_status: form.work_status,
       issues: form.issues || null,
@@ -78,7 +84,17 @@ export function LogsClient({
       setLogs((prev) => [data as DailyLog, ...prev]);
       setShowForm(false);
       setPhotoFiles([]);
-      setForm({ log_date: new Date().toISOString().split("T")[0], phase_id: "", deliverable_name: "", description: "", weather: "Sunny", work_status: "In Progress", issues: "" });
+      setForm({
+        log_date: new Date().toISOString().split("T")[0],
+        phase_id: "",
+        deliverable_name: "",
+        description: "",
+        weather: "Sunny",
+        work_status: "In Progress",
+        issues: "",
+        category: "Labour",
+        no_of_labour: "",
+      });
     }
     setSaving(false);
   }
@@ -126,7 +142,28 @@ export function LogsClient({
                       <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{log.work_status}</span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-800 line-clamp-2 mt-0.5">{log.description}</p>
+                  {(() => {
+                    const { category, labour, cleanDescription } = parseLogDescription(log.description);
+                    return (
+                      <div className="space-y-1">
+                        <p className="text-sm text-gray-800 line-clamp-2 mt-0.5">{cleanDescription || "No description"}</p>
+                        {(category || labour) && (
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            {category && (
+                              <span className="text-[10px] font-semibold bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md border border-gray-200/50">
+                                📂 {category}
+                              </span>
+                            )}
+                            {labour && (
+                              <span className="text-[10px] font-semibold bg-amber-50 text-amber-800 px-2 py-0.5 rounded-md border border-amber-200/40">
+                                👷 {labour} workers
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                     {log.weather && <span>☁️ {log.weather}</span>}
                     {log.photos && log.photos.length > 0 && <span>📷 {log.photos.length} photo{log.photos.length !== 1 ? "s" : ""}</span>}
@@ -189,6 +226,37 @@ export function LogsClient({
                   )}
                 </div>
               )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-700 block mb-1">Category</label>
+                  <select
+                    value={form.category}
+                    onChange={(e) => setForm((p) => ({ ...p, category: e.target.value, no_of_labour: e.target.value === "Labour" ? p.no_of_labour : "" }))}
+                    className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white"
+                  >
+                    <option value="Labour">Labour</option>
+                    <option value="Material">Material</option>
+                    <option value="Equipment">Equipment</option>
+                    <option value="Progress">Progress</option>
+                    <option value="Others">Others</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-700 block mb-1">
+                    {form.category === "Labour" ? "No. of Labour" : "Labour Count (N/A)"}
+                  </label>
+                  <input
+                    type="number"
+                    disabled={form.category !== "Labour"}
+                    value={form.no_of_labour}
+                    onChange={(e) => setForm((p) => ({ ...p, no_of_labour: e.target.value }))}
+                    className="w-full h-12 border border-border rounded-lg px-3 text-sm disabled:opacity-50 disabled:bg-gray-50 focus:border-gray-500 focus:outline-none"
+                    placeholder={form.category === "Labour" ? "e.g. 5" : "—"}
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="text-xs font-medium text-gray-700 block mb-1">Work Description *</label>
                 <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-3 text-sm resize-none" rows={4} placeholder="What was done today..." />
@@ -240,8 +308,8 @@ export function LogsClient({
 
       {/* View log modal */}
       {viewLog && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center">
-          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white w-full sm:max-w-lg rounded-2xl max-h-[80vh] overflow-y-auto shadow-2xl">
             <div className="p-4 border-b border-border sticky top-0 bg-white rounded-t-2xl flex items-center justify-between">
               <h2 className="font-bold text-gray-900">{formatDate(viewLog.log_date)}</h2>
               <button onClick={() => setViewLog(null)} className="p-2 text-muted-foreground"><X className="h-4 w-4" /></button>
@@ -259,7 +327,20 @@ export function LogsClient({
                 {viewLog.work_status && <div><p className="text-xs text-muted-foreground">Status</p><p className="font-medium">{viewLog.work_status}</p></div>}
                 {viewLog.deliverable_name && <div className="col-span-2"><p className="text-xs text-muted-foreground">Deliverable</p><p className="font-medium text-blue-700">{viewLog.deliverable_name}</p></div>}
               </div>
-              <div><p className="text-xs text-muted-foreground mb-1">Description</p><p className="text-sm text-gray-800">{viewLog.description}</p></div>
+              {(() => {
+                const { category, labour, cleanDescription } = parseLogDescription(viewLog.description);
+                return (
+                  <>
+                    {(category || labour) && (
+                      <div className="grid grid-cols-2 gap-3 text-sm border-t border-b border-border/40 py-3">
+                        {category && <div><p className="text-xs text-muted-foreground">Category</p><p className="font-medium text-gray-800">📂 {category}</p></div>}
+                        {labour && <div><p className="text-xs text-muted-foreground">No. of Labour</p><p className="font-medium text-amber-800">👷 {labour} workers</p></div>}
+                      </div>
+                    )}
+                    <div><p className="text-xs text-muted-foreground mb-1">Description</p><p className="text-sm text-gray-800">{cleanDescription || "No description"}</p></div>
+                  </>
+                );
+              })()}
               {viewLog.issues && <div><p className="text-xs text-muted-foreground mb-1">Issues</p><p className="text-sm text-red-700">{viewLog.issues}</p></div>}
               {viewLog.resolution && <div><p className="text-xs text-muted-foreground mb-1">Resolution</p><p className="text-sm text-emerald-700">{viewLog.resolution}</p></div>}
             </div>

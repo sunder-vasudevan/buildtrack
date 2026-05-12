@@ -28,3 +28,29 @@ export function daysLeft(endDate: string): number {
   const now = new Date();
   return Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
+
+export function parseLogDescription(desc: string | null | undefined) {
+  if (!desc) return { category: null, labour: null, cleanDescription: "" };
+
+  const categoryMatch = desc.match(/^\[Category:\s*([^\]]+)\]/);
+  const labourMatch = desc.match(/\[Labour:\s*([^\]]+)\]/);
+
+  let cleanDescription = desc;
+  let category = null;
+  let labour = null;
+
+  if (categoryMatch) {
+    category = categoryMatch[1];
+    cleanDescription = cleanDescription.replace(categoryMatch[0], "");
+  }
+  if (labourMatch) {
+    labour = labourMatch[1];
+    cleanDescription = cleanDescription.replace(labourMatch[0], "");
+  }
+
+  return {
+    category: category ? category.trim() : null,
+    labour: labour ? labour.trim() : null,
+    cleanDescription: cleanDescription.trim(),
+  };
+}

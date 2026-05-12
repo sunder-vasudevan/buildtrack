@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { DailyLog } from "@/lib/types";
-import { formatDate } from "@/lib/utils";
+import { formatDate, parseLogDescription } from "@/lib/utils";
 import { Activity, ChevronDown, Calendar, CloudSun } from "lucide-react";
 
 interface RecentActivityWidgetProps {
@@ -51,9 +51,30 @@ export function RecentActivityWidget({ recentLogs }: RecentActivityWidgetProps) 
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-800 font-medium break-words leading-relaxed">
-                    {log.description ?? "No description"}
-                  </p>
+                  {(() => {
+                    const { category, labour, cleanDescription } = parseLogDescription(log.description);
+                    return (
+                      <div className="space-y-1">
+                        <p className="text-sm text-gray-800 font-medium break-words leading-relaxed">
+                          {cleanDescription || "No description"}
+                        </p>
+                        {(category || labour) && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {category && (
+                              <span className="text-[9px] font-semibold bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded border border-gray-200/50">
+                                📂 {category}
+                              </span>
+                            )}
+                            {labour && (
+                              <span className="text-[9px] font-semibold bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded border border-amber-200/40">
+                                👷 {labour} workers
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>
