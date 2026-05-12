@@ -264,20 +264,24 @@ function QuickFundsForm({ onClose, onSaved }: { onClose: () => void; onSaved: ()
 function QuickReminderForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [type, setType] = useState<"reminder" | "wish">("reminder");
   const [form, setForm] = useState({
     text: "",
     due_date: "",
   });
 
   async function handleSave() {
-    if (!form.text) { setError("Reminder text is required."); return; }
+    if (!form.text) { setError("Text is required."); return; }
     setSaving(true);
     setError("");
     const { data: project } = await supabase.from("projects").select("id").single();
+    
+    const textToSave = type === "wish" ? `[Wish] ${form.text.trim()}` : form.text.trim();
+
     const { error: insertError } = await supabase.from("reminders").insert({
       project_id: project?.id,
-      text: form.text,
-      due_date: form.due_date || null,
+      text: textToSave,
+      due_date: type === "wish" ? null : (form.due_date || null),
       done: false,
     });
     if (insertError) { setError("Failed to save. Try again."); setSaving(false); return; }
@@ -290,31 +294,60 @@ function QuickReminderForm({ onClose, onSaved }: { onClose: () => void; onSaved:
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
       <div className="bg-white w-full sm:max-w-lg rounded-2xl max-h-[80vh] overflow-y-auto shadow-2xl">
         <div className="p-4 border-b border-border sticky top-0 bg-white rounded-t-2xl flex items-center justify-between">
-          <h2 className="font-bold text-gray-900">Quick Reminder</h2>
+          <h2 className="font-bold text-gray-900">{type === "wish" ? "Quick Wish / Pending" : "Quick Reminder"}</h2>
           <button onClick={onClose} className="p-2 text-muted-foreground"><X className="h-4 w-4" /></button>
         </div>
         <div className="p-4 space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg p-3">{error}</p>}
+          
+          {/* Type Selector */}
+          <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1 rounded-xl text-center">
+            <button
+              type="button"
+              onClick={() => setType("reminder")}
+              className={`py-1.5 text-xs font-bold rounded-lg transition-all ${
+                type === "reminder" ? "bg-white text-gray-950 shadow-sm" : "text-muted-foreground"
+              }`}
+            >
+              📅 Reminder
+            </button>
+            <button
+              type="button"
+              onClick={() => setType("wish")}
+              className={`py-1.5 text-xs font-bold rounded-lg transition-all ${
+                type === "wish" ? "bg-white text-gray-950 shadow-sm" : "text-muted-foreground"
+              }`}
+            >
+              ✨ Wish List
+            </button>
+          </div>
+
           <div>
-            <label className="text-xs font-medium text-gray-700 block mb-1">Reminder *</label>
+            <label className="text-xs font-medium text-gray-700 block mb-1">
+              {type === "wish" ? "What is your wish / pending work? *" : "Reminder / Task *"}
+            </label>
             <textarea
               value={form.text}
               onChange={(e) => setForm((p) => ({ ...p, text: e.target.value }))}
               className="w-full border border-border rounded-lg px-3 py-3 text-sm resize-none"
               rows={3}
-              placeholder="e.g. Call Ravi about steel delivery, Check window measurements..."
+              placeholder={type === "wish" ? "e.g. Build modular barbecue deck in lawn..." : "e.g. Call Ravi about steel delivery..."}
               autoFocus
             />
           </div>
-          <div>
-            <label className="text-xs font-medium text-gray-700 block mb-1">Due Date (optional)</label>
-            <input
-              type="date"
-              value={form.due_date}
-              onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))}
-              className="w-full h-12 border border-border rounded-lg px-3 text-sm"
-            />
-          </div>
+
+          {type !== "wish" && (
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Due Date (optional)</label>
+              <input
+                type="date"
+                value={form.due_date}
+                onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))}
+                className="w-full h-12 border border-border rounded-lg px-3 text-sm"
+              />
+            </div>
+          )}
+
           <div className="flex gap-3">
             <button onClick={onClose} className="flex-1 h-12 border border-border text-gray-900 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors">
               Cancel
@@ -324,7 +357,7 @@ function QuickReminderForm({ onClose, onSaved }: { onClose: () => void; onSaved:
               disabled={saving || !form.text}
               className="flex-1 h-12 bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Save Reminder"}
+              {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Save"}
             </button>
           </div>
         </div>

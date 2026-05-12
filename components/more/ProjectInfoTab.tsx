@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { BudgetItem, DailyLog, Income, Phase, Project, Window, PlanDocument } from "@/lib/types";
+import { BudgetItem, DailyLog, Income, Phase, Project, Window, PlanDocument, Reminder } from "@/lib/types";
 import { formatINR, formatDate, daysLeft } from "@/lib/utils";
-import { Building2, Download, Loader2, Settings, ChevronDown, ChevronUp, Grid, FileText } from "lucide-react";
+import { Building2, Download, Loader2, Settings, ChevronDown, ChevronUp, Grid, FileText, PenSquare, Trash2, Search, Plus, BookOpen } from "lucide-react";
 import { WindowsClient } from "@/components/tracker/WindowsTab";
 import { PlansTab } from "@/components/tracker/PlansTab";
 
@@ -54,11 +54,57 @@ function exportExcel(filename: string, rows: Record<string, unknown>[]) {
   triggerDownload(filename, html, "application/vnd.ms-excel;charset=utf-8");
 }
 
-export function ProjectInfoTab({ project, initialWindows, initialPlans }: { project: Project | null; initialWindows?: Window[]; initialPlans?: PlanDocument[] }) {
+export function ProjectInfoTab({
+  project,
+  initialWindows,
+  initialPlans,
+  initialReminders = [],
+}: {
+  project: Project | null;
+  initialWindows?: Window[];
+  initialPlans?: PlanDocument[];
+  initialReminders?: Reminder[];
+}) {
   const [loading, setLoading] = useState(false);
   const [windowsExpanded, setWindowsExpanded] = useState(false);
   const [plansExpanded, setPlansExpanded] = useState(false);
+  const [notesExpanded, setNotesExpanded] = useState(true); // default open for gorgeous workspace visibility!
   const [settingsExpanded, setSettingsExpanded] = useState(false);
+
+  // Notes state (stored inside reminders table with [Note] prefix)
+  const [reminders, setReminders] = useState<Reminder[]>(initialReminders);
+  const [newNoteText, setNewNoteText] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Sync initial reminders
+  useEffect(() => {
+    setReminders(initialReminders);
+  }, [initialReminders]);
+
+  // Real-time synchronization
+  useEffect(() => {
+    const channel = supabase
+      .channel("project_info_notes_sync")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "reminders" },
+        async () => {
+          const { data } = await supabase
+            .from("reminders")
+            .select("*")
+            .order("created_at", { ascending: false });
+          if (data) {
+            setReminders(data as Reminder[]);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   async function fetchAndExport(dataset: ExportKey, format: "csv" | "excel") {
     if (!project) return;
@@ -188,6 +234,53 @@ export function ProjectInfoTab({ project, initialWindows, initialPlans }: { proj
     }
   }
 
+  // Handle adding notes
+  async function handleAddNote(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newNoteText.trim()) return;
+
+    setSavingNote(true);
+    const { data: proj } = await supabase.from("projects").select("id").single();
+    
+    const { data, error } = await supabase
+      .from("reminders")
+      .insert({
+        project_id: proj?.id,
+        text: `[Note] ${newNoteText.trim()}`,
+        done: false,
+        due_date: null,
+      })
+      .select()
+      .single();
+
+    if (!error && data) {
+      setReminders((prev) => [data as Reminder, ...prev]);
+      setNewNoteText("");
+    } else {
+      console.error("Error saving note:", error);
+    }
+    setSavingNote(false);
+  }
+
+  // Handle deleting notes
+  async function handleDeleteNote(id: string) {
+    setReminders((prev) => prev.filter((r) => r.id !== id));
+    await supabase.from("reminders").delete().eq("id", id);
+  }
+
+  // Clean note parser
+  const parseNote = (text: string) => {
+    return text.replace(/^\[Note\]\s*/i, "").trim();
+  };
+
+  // Extract all notes
+  const notes = reminders.filter((r) => r.text.startsWith("[Note]"));
+
+  // Apply search filtering
+  const filteredNotes = notes.filter((n) =>
+    parseNote(n.text).toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (!project) return null;
 
   return (
@@ -209,12 +302,107 @@ export function ProjectInfoTab({ project, initialWindows, initialPlans }: { proj
         </div>
       </div>
 
+      {/* NEW SECTION: Running Notes & Jottings Legal Pad */}
+      <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+        <button
+          onClick={() => setNotesExpanded(!notesExpanded)}
+          className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50/50 transition-colors focus:outline-none"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+              <PenSquare className="h-4.5 w-4.5 text-amber-600" />
+            </div>
+            <div>
+              <p className="font-bold text-sm text-gray-900">Project Jottings & Notepad</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {notes.length} brainstorm logs, design notes, and site specifications
+              </p>
+            </div>
+          </div>
+          {notesExpanded ? <ChevronUp className="h-5 w-5 text-gray-400" /> : <ChevronDown className="h-5 w-5 text-gray-400" />}
+        </button>
+
+        {notesExpanded && (
+          <div className="border-t border-border bg-gray-50/15 p-4 space-y-4">
+            {/* Note writing input */}
+            <form onSubmit={handleAddNote} className="flex gap-2">
+              <textarea
+                value={newNoteText}
+                disabled={savingNote}
+                onChange={(e) => setNewNoteText(e.target.value)}
+                className="flex-1 h-12 border border-border rounded-xl px-3.5 py-3 text-xs bg-white focus:outline-none focus:border-gray-400 resize-none"
+                placeholder="Type running project notes, meeting details, or materials to buy..."
+              />
+              <button
+                type="submit"
+                disabled={savingNote || !newNoteText.trim()}
+                className="h-12 w-12 bg-gray-950 hover:bg-gray-800 text-white rounded-xl flex items-center justify-center shrink-0 transition-colors disabled:opacity-40"
+              >
+                {savingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-5 w-5" />}
+              </button>
+            </form>
+
+            {/* Note search query filter */}
+            {notes.length > 0 && (
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-9 border border-border/80 rounded-lg pl-9 pr-3 text-xs focus:outline-none bg-white focus:border-gray-400"
+                  placeholder="Filter and search notepad entries..."
+                />
+              </div>
+            )}
+
+            {/* List notes timeline */}
+            {filteredNotes.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center bg-white rounded-xl border border-dashed border-border/60">
+                <BookOpen className="h-8 w-8 text-gray-300 mb-1" />
+                <p className="text-xs font-semibold text-gray-900">
+                  {searchQuery ? "No matching notes found" : "Your project notepad is empty"}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  {searchQuery ? "Try searching for a different keyword." : "Write your first brainstorm jotting above."}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+                {filteredNotes.map((note) => (
+                  <div
+                    key={note.id}
+                    className="p-3.5 bg-yellow-50/50 hover:bg-yellow-50 border border-yellow-100/60 rounded-xl flex items-start justify-between gap-3 shadow-xs transition-colors group"
+                  >
+                    <div className="space-y-1 min-w-0">
+                      <p className="text-xs text-gray-800 leading-relaxed break-words whitespace-pre-wrap font-sans">
+                        {parseNote(note.text)}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground font-sans font-medium">
+                        Jotted on {formatDate(note.created_at)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteNote(note.id)}
+                      className="p-1.5 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                      title="Delete note"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Section 2: Windows Accordion Block */}
       {initialWindows && (
         <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
           <button
             onClick={() => setWindowsExpanded(!windowsExpanded)}
-            className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50/50 transition-colors"
+            className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50/50 transition-colors focus:outline-none"
           >
             <div className="flex items-center gap-2.5">
               <div className="h-8 w-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
@@ -243,7 +431,7 @@ export function ProjectInfoTab({ project, initialWindows, initialPlans }: { proj
         <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
           <button
             onClick={() => setPlansExpanded(!plansExpanded)}
-            className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50/50 transition-colors"
+            className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50/50 transition-colors focus:outline-none"
           >
             <div className="flex items-center gap-2.5">
               <div className="h-8 w-8 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
@@ -271,7 +459,7 @@ export function ProjectInfoTab({ project, initialWindows, initialPlans }: { proj
       <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
         <button
           onClick={() => setSettingsExpanded(!settingsExpanded)}
-          className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50/50 transition-colors"
+          className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50/50 transition-colors focus:outline-none"
         >
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-lg bg-gray-100 text-gray-700 flex items-center justify-center shrink-0">

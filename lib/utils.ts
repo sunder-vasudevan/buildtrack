@@ -54,3 +54,13 @@ export function parseLogDescription(desc: string | null | undefined) {
     cleanDescription: cleanDescription.trim(),
   };
 }
+
+export function isWish(text: string | null | undefined): boolean {
+  if (!text) return false;
+  return text.trim().startsWith("[Wish]");
+}
+
+export function cleanWishText(text: string | null | undefined): string {
+  if (!text) return "";
+  return text.trim().replace(/^\[Wish\]\s*/i, "").trim();
+}
