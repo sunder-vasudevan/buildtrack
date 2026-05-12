@@ -408,28 +408,6 @@ function QuickReminderForm({ onClose, onSaved, initialType = "reminder" }: { onC
         </div>
         <div className="p-4 space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg p-3">{error}</p>}
-          
-          {/* Type Selector */}
-          <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1 rounded-xl text-center">
-            <button
-              type="button"
-              onClick={() => setType("reminder")}
-              className={`py-1.5 text-xs font-bold rounded-lg transition-all ${
-                type === "reminder" ? "bg-white text-gray-950 shadow-sm" : "text-muted-foreground"
-              }`}
-            >
-              📅 Reminder
-            </button>
-            <button
-              type="button"
-              onClick={() => setType("wish")}
-              className={`py-1.5 text-xs font-bold rounded-lg transition-all ${
-                type === "wish" ? "bg-white text-gray-950 shadow-sm" : "text-muted-foreground"
-              }`}
-            >
-              ✨ Wish List
-            </button>
-          </div>
 
           <div>
             <label className="text-xs font-medium text-gray-700 block mb-1">
