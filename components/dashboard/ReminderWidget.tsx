@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { Reminder } from "@/lib/types";
-import { formatDate, isWish, cleanWishText } from "@/lib/utils";
+import { formatDate, isWish, cleanWishText, parseWishPhase } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { Bell, AlertCircle, Clock, Calendar, Check, ChevronDown, Loader2, Star, Sparkles, Plus } from "lucide-react";
 
@@ -504,22 +504,38 @@ export function PendingTasksWidget({ initialReminders }: { initialReminders: Rem
             </div>
           ) : (
             <div className="space-y-2">
-              {activeWishes.map((w) => (
-                <div key={w.id} className="flex items-center justify-between p-3 rounded-lg border border-amber-100 bg-amber-50/20 gap-3">
-                  <div className="flex items-start gap-2.5 min-w-0">
-                    <Star className="h-4.5 w-4.5 text-amber-500 mt-0.5 shrink-0 fill-amber-300" />
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-gray-800 break-words whitespace-normal">{cleanWishText(w.text)}</p>
+              {activeWishes.map((w) => {
+                const phaseInfo = parseWishPhase(w.text);
+                const textToShow = cleanWishText(w.text);
+                return (
+                  <div key={w.id} className="flex items-center justify-between p-3 rounded-xl border border-amber-100 bg-amber-50/20 gap-3">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <Star className="h-4.5 w-4.5 text-amber-500 mt-1 shrink-0 fill-amber-300" />
+                      <div className="min-w-0 space-y-1">
+                        <p className="text-xs font-semibold text-gray-800 break-words whitespace-normal leading-relaxed">{textToShow}</p>
+                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                          {phaseInfo.name && (
+                            <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 font-bold rounded-md bg-purple-50 border border-purple-100 text-purple-700 font-sans">
+                              🧱 {phaseInfo.name}
+                            </span>
+                          )}
+                          {w.due_date && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-gray-500 bg-gray-100/50 px-1.5 py-0.5 rounded-md border border-gray-200/30 font-sans">
+                              <Calendar className="h-3 w-3 text-gray-400" /> {formatDate(w.due_date)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
+                    <button
+                      onClick={() => handleMarkDone(w.id)}
+                      className="h-7 w-7 rounded-full bg-white border border-amber-200 text-amber-600 flex items-center justify-center shadow-sm hover:bg-amber-50 transition-colors active:scale-95 shrink-0"
+                    >
+                      <Check className="h-4 w-4" />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => handleMarkDone(w.id)}
-                    className="h-7 w-7 rounded-full bg-white border border-amber-200 text-amber-600 flex items-center justify-center shadow-sm hover:bg-amber-50 transition-colors active:scale-95 shrink-0"
-                  >
-                    <Check className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -551,24 +567,40 @@ export function PendingTasksWidget({ initialReminders }: { initialReminders: Rem
                 ) : completedReminders.length === 0 ? (
                   <p className="text-[11px] text-muted-foreground italic text-center py-2">No completed wishes yet.</p>
                 ) : (
-                  completedReminders.map((r) => (
-                    <div key={r.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-gray-50/50 gap-3 group opacity-75 hover:opacity-100 transition-opacity">
-                      <div className="flex items-start gap-2.5 min-w-0">
-                        <Check className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-xs text-gray-400 line-through break-words whitespace-normal leading-normal">
-                            {cleanWishText(r.text)}
-                          </p>
+                  completedReminders.map((r) => {
+                    const phaseInfo = parseWishPhase(r.text);
+                    const textToShow = cleanWishText(r.text);
+                    return (
+                      <div key={r.id} className="flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-gray-50/50 gap-3 group opacity-75 hover:opacity-100 transition-opacity">
+                        <div className="flex items-start gap-2.5 min-w-0">
+                          <Check className="h-4 w-4 text-emerald-500 mt-1 shrink-0" />
+                          <div className="min-w-0 space-y-1">
+                            <p className="text-xs text-gray-400 line-through break-words whitespace-normal leading-relaxed">
+                              {textToShow}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                              {phaseInfo.name && (
+                                <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 font-semibold rounded-md bg-gray-100 border border-gray-200 text-gray-400 line-through font-sans">
+                                  {phaseInfo.name}
+                                </span>
+                              )}
+                              {r.due_date && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-400 bg-gray-100/50 px-1.5 py-0.5 rounded-md border border-gray-200/20 font-sans">
+                                  <Calendar className="h-3 w-3 text-gray-300" /> {formatDate(r.due_date)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
+                        <button
+                          onClick={() => handleReopenReminder(r.id)}
+                          className="text-[10px] font-bold text-primary hover:underline px-2.5 py-1 bg-white border border-border rounded-md shadow-sm active:scale-95 transition-all shrink-0"
+                        >
+                          Re-open
+                        </button>
                       </div>
-                      <button
-                        onClick={() => handleReopenReminder(r.id)}
-                        className="text-[10px] font-bold text-primary hover:underline px-2.5 py-1 bg-white border border-border rounded-md shadow-sm active:scale-95 transition-all shrink-0"
-                      >
-                        Re-open
-                      </button>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             )}

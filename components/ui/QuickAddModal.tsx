@@ -84,6 +84,32 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
           <button onClick={onClose} className="p-2 text-muted-foreground"><X className="h-4 w-4" /></button>
         </div>
         <div className="p-4 space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1.5">Category</label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { value: "Labour", label: "👷 Labour", activeColor: "bg-amber-100 border-amber-400 text-amber-900" },
+                { value: "Material", label: "🧱 Material", activeColor: "bg-orange-100 border-orange-400 text-orange-900" },
+                { value: "Equipment", label: "🚜 Equipment", activeColor: "bg-blue-100 border-blue-400 text-blue-900" },
+                { value: "Progress", label: "📈 Progress", activeColor: "bg-emerald-100 border-emerald-400 text-emerald-900" },
+                { value: "Others", label: "🔮 Others", activeColor: "bg-gray-100 border-gray-400 text-gray-950" },
+              ].map((cat) => (
+                <button
+                  key={cat.value}
+                  type="button"
+                  onClick={() => setForm(p => ({ ...p, category: cat.value, no_of_labour: cat.value === "Labour" ? p.no_of_labour : "" }))}
+                  className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
+                    form.category === cat.value
+                      ? `${cat.activeColor} shadow-xs scale-102`
+                      : "bg-white border-border text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-gray-700 block mb-1">Date</label>
@@ -123,32 +149,6 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
                   }`}
                 >
                   {sc.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1.5">Category</label>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { value: "Labour", label: "👷 Labour", activeColor: "bg-amber-100 border-amber-400 text-amber-900" },
-                { value: "Material", label: "🧱 Material", activeColor: "bg-orange-100 border-orange-400 text-orange-900" },
-                { value: "Equipment", label: "🚜 Equipment", activeColor: "bg-blue-100 border-blue-400 text-blue-900" },
-                { value: "Progress", label: "📈 Progress", activeColor: "bg-emerald-100 border-emerald-400 text-emerald-900" },
-                { value: "Others", label: "🔮 Others", activeColor: "bg-gray-100 border-gray-400 text-gray-950" },
-              ].map((cat) => (
-                <button
-                  key={cat.value}
-                  type="button"
-                  onClick={() => setForm(p => ({ ...p, category: cat.value, no_of_labour: cat.value === "Labour" ? p.no_of_labour : "" }))}
-                  className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
-                    form.category === cat.value
-                      ? `${cat.activeColor} shadow-xs scale-102`
-                      : "bg-white border-border text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  {cat.label}
                 </button>
               ))}
             </div>
@@ -407,7 +407,17 @@ function QuickReminderForm({ onClose, onSaved, initialType = "reminder" }: { onC
   const [form, setForm] = useState({
     text: "",
     due_date: "",
+    phase_id: "",
   });
+  const [phases, setPhases] = useState<Phase[]>([]);
+
+  useEffect(() => {
+    if (type === "wish") {
+      supabase.from("phases").select("id, name").order("phase_number").then(({ data }) => {
+        if (data) setPhases(data as Phase[]);
+      });
+    }
+  }, [type]);
 
   async function handleSave() {
     if (!form.text) { setError("Text is required."); return; }
@@ -415,12 +425,22 @@ function QuickReminderForm({ onClose, onSaved, initialType = "reminder" }: { onC
     setError("");
     const { data: project } = await supabase.from("projects").select("id").single();
     
-    const textToSave = type === "wish" ? `[Wish] ${form.text.trim()}` : form.text.trim();
+    let textToSave = form.text.trim();
+    if (type === "wish") {
+      const selectedPhase = phases.find(p => p.id === form.phase_id);
+      if (selectedPhase) {
+        textToSave = `[Wish] [Phase:${selectedPhase.id}|${selectedPhase.name}] ${textToSave}`;
+      } else {
+        textToSave = `[Wish] ${textToSave}`;
+      }
+    } else {
+      textToSave = textToSave;
+    }
 
     const { error: insertError } = await supabase.from("reminders").insert({
       project_id: project?.id,
       text: textToSave,
-      due_date: type === "wish" ? null : (form.due_date || null),
+      due_date: form.due_date || null,
       done: false,
     });
     if (insertError) { setError("Failed to save. Try again."); setSaving(false); return; }
@@ -439,6 +459,25 @@ function QuickReminderForm({ onClose, onSaved, initialType = "reminder" }: { onC
         <div className="p-4 space-y-4">
           {error && <p className="text-sm font-semibold text-red-600 bg-red-50 rounded-xl p-3 border border-red-200">{error}</p>}
 
+          {/* Phase Selector (Only for Wish List) */}
+          {type === "wish" && (
+            <div>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Phase (optional)</label>
+              <select
+                value={form.phase_id}
+                onChange={(e) => setForm((p) => ({ ...p, phase_id: e.target.value }))}
+                className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-955 font-semibold focus:border-gray-500 focus:outline-none"
+              >
+                <option value="">No phase selected</option>
+                {phases.map((ph) => (
+                  <option key={ph.id} value={ph.id}>
+                    {ph.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
             <label className="text-xs font-semibold text-gray-700 block mb-1">
               {type === "wish" ? "What is your wish / pending work? *" : "Reminder / Task *"}
@@ -453,17 +492,17 @@ function QuickReminderForm({ onClose, onSaved, initialType = "reminder" }: { onC
             />
           </div>
 
-          {type !== "wish" && (
-            <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">Due Date (optional)</label>
-              <input
-                type="date"
-                value={form.due_date}
-                onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))}
-                className="w-full h-11 border border-border rounded-xl px-3 text-xs font-sans font-semibold bg-white text-gray-900 focus:border-gray-500 focus:outline-none"
-              />
-            </div>
-          )}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">
+              {type === "wish" ? "Target Date (optional)" : "Due Date (optional)"}
+            </label>
+            <input
+              type="date"
+              value={form.due_date}
+              onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))}
+              className="w-full h-11 border border-border rounded-xl px-3 text-xs font-sans font-semibold bg-white text-gray-900 focus:border-gray-500 focus:outline-none"
+            />
+          </div>
 
           <div className="flex gap-3 pt-2">
             <button

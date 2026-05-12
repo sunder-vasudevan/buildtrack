@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Phase, DailyLog, Reminder } from "@/lib/types";
-import { isWish, cleanWishText, formatDate } from "@/lib/utils";
+import { isWish, cleanWishText, formatDate, parseWishPhase } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { ChevronDown, ChevronUp, Kanban, BookOpen, Sparkles, Star, Check, Trash2, Plus, Loader2 } from "lucide-react";
 import { PhasesClient } from "@/components/tracker/PhasesTab";

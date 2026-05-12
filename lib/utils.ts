@@ -62,5 +62,20 @@ export function isWish(text: string | null | undefined): boolean {
 
 export function cleanWishText(text: string | null | undefined): string {
   if (!text) return "";
-  return text.trim().replace(/^\[Wish\]\s*/i, "").trim();
+  let cleaned = text.trim().replace(/^\[Wish\]\s*/i, "").trim();
+  cleaned = cleaned.replace(/^\[Phase:[^\]]*\]\s*/i, "").trim();
+  return cleaned;
+}
+
+export function parseWishPhase(text: string | null | undefined): { id: string | null, name: string | null } {
+  if (!text) return { id: null, name: null };
+  const cleaned = text.trim().replace(/^\[Wish\]\s*/i, "").trim();
+  const match = cleaned.match(/^\[Phase:([^|\]]*)\|([^\]]*)\]/);
+  if (match) {
+    return {
+      id: match[1] || null,
+      name: match[2] || null
+    };
+  }
+  return { id: null, name: null };
 }

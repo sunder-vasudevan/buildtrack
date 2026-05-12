@@ -22,56 +22,56 @@ const data = [
     name: "Phase 0: Site Prep & Foundation",
     start_date: "2026-05-14",
     end_date: "2026-05-27",
-    deliverables: ["Site cleared & leveled", "JCB work", "Excavation", "Footing layout"]
+    deliverables: ["Site cleared & leveled", "JCB work", "Excavation", "Footing layout", "Temporary Electricity Meter Installation", "Excavation Shoring & Dewatering"]
   },
   {
     phase_number: 1,
     name: "Phase 1: Foundation Footings & Columns",
     start_date: "2026-05-28",
     end_date: "2026-06-10",
-    deliverables: ["Footings cast", "Columns & beams (RCC frame) complete", "Concrete finished"]
+    deliverables: ["PCC Mud-mat Laying", "Footings cast", "Steel Rebar Tying & Inspection", "Columns & beams (RCC frame) complete", "Plinth Beam Casting", "Foundation Backfilling & Compaction", "DPC (Damp Proof Course) Layer", "Concrete finished"]
   },
   {
     phase_number: 2,
     name: "Phase 1B: Walls & Brickwork",
     start_date: "2026-06-11",
     end_date: "2026-06-14",
-    deliverables: ["Brickwork complete (walls up to full height)"]
+    deliverables: ["Door & Window Frame Fitting (Chowkats)", "Brickwork complete (walls up to full height)", "Lintel Beams & Chajja (Sunshade) Casting", "Sill Band Construction"]
   },
   {
     phase_number: 3,
     name: "MILESTONE: ROOF STRUCTURE",
     start_date: "2026-06-15",
     end_date: "2026-06-15",
-    deliverables: ["Centring formwork", "RCC slab or pitched roof casting complete", "Formwork removal", "Building WEATHERPROOF"]
+    deliverables: ["Centring formwork", "Concealed Electrical Conduit Laying in Slab", "Fan Hooks & Junction Box Placement", "RCC slab or pitched roof casting complete", "Slab Concrete Curing (14-21 Days)", "Formwork removal", "Building WEATHERPROOF"]
   },
   {
     phase_number: 4,
     name: "Phase 2: Plastering & Finishes Base",
     start_date: "2026-06-16",
     end_date: "2026-07-31",
-    deliverables: ["Internal & external wall plaster", "Flooring stone base", "Tile underlay", "All walls finished"]
+    deliverables: ["Wall Chasing for Concealed Conduit", "Internal & external wall plaster", "Wet-area Waterproofing (Bathrooms & Balconies)", "External Waterproof Plastering Coat", "Wall Putty Base Coat (Putty 1 & 2)", "Flooring stone base", "Tile underlay", "All walls finished"]
   },
   {
     phase_number: 5,
     name: "Phase 3: MEP Rough-in",
     start_date: "2026-08-01",
     end_date: "2026-08-15",
-    deliverables: ["Electrical conduit & wiring (concealed)", "Plumbing rough-in", "Water supply entry", "Drainage lines"]
+    deliverables: ["Electrical conduit & wiring (concealed)", "Plumbing rough-in", "Water supply entry", "Drainage lines", "Septic Tank / Sewage Treatment Plant (STP)", "Rainwater Harvesting Pit (RWH)", "AC Concealed Copper Piping"]
   },
   {
     phase_number: 6,
     name: "Phase 4: Flooring & Fixtures",
     start_date: "2026-08-16",
     end_date: "2026-09-05",
-    deliverables: ["Flooring tiles laid", "Bathroom & kitchen tiles", "Paint (interior & exterior)", "All fixtures installed"]
+    deliverables: ["Flooring tiles laid", "Bathroom & kitchen tiles", "Kitchen Granite Counter Countertop Fabrication", "UPVC/Aluminium Window Glass Frame Installation", "Carpentry, Wardrobes & Woodwork", "Main Gates, Window Grilles & Security Balustrades", "Paint (interior & exterior)", "All fixtures installed"]
   },
   {
     phase_number: 7,
     name: "Phase 5: Testing, Cleanup & Handover",
     start_date: "2026-09-06",
     end_date: "2026-09-20",
-    deliverables: ["Electrical testing & safety", "Plumbing pressure test", "Final cleanup", "Inspection & handover"]
+    deliverables: ["Electrical testing & safety", "Plumbing pressure test", "Boundary Wall / Chainlink Security Fencing", "Overhead Water Tank & Pressure Pump", "Power Backup (Solar/Inverter/Generator)", "Landscape & Garden Development", "Final cleanup", "Inspection & handover"]
   }
 ];
 
