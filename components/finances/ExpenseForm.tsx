@@ -336,7 +336,7 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
         )}
 
         <div className="p-4 space-y-4">
-          {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg p-3">{error}</p>}
+          {error && <p className="text-sm font-semibold text-red-600 bg-red-50 rounded-xl p-3 border border-red-200">{error}</p>}
 
           {/* Link to Quote Selection */}
           {!prefillItem ? (
@@ -345,55 +345,55 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
               <button
                 type="button"
                 onClick={() => setShowSelector(true)}
-                className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white font-semibold text-gray-900 flex items-center justify-between hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-primary focus:outline-none"
+                className="w-full h-11 border border-blue-100 rounded-xl px-3 text-xs bg-blue-50/20 text-blue-900 flex items-center justify-between hover:bg-blue-50/50 transition-all focus:outline-none"
               >
                 {(() => {
                   const selectedItem = budgetItems.find((item) => item.id === selectedBudgetItemId);
                   if (selectedItem) {
                     return (
                       <div className="flex flex-col items-start min-w-0">
-                        <span className="text-[9px] text-muted-foreground uppercase font-extrabold leading-none mb-0.5">
+                        <span className="text-[9px] text-blue-600 uppercase font-extrabold leading-none mb-0.5">
                           {selectedItem.category}
                         </span>
-                        <span className="text-sm font-bold text-gray-900 truncate max-w-full">
+                        <span className="text-xs font-bold text-blue-950 truncate max-w-full">
                           {selectedItem.item_name}
                         </span>
                       </div>
                     );
                   }
-                  return <span className="text-muted-foreground font-medium">— Tap to search / link a Quote —</span>;
+                  return <span className="text-blue-600/70 font-semibold">— Tap to search / link a Budget Quote —</span>;
                 })()}
-                <ChevronDown className="h-4.5 w-4.5 text-gray-400 shrink-0" />
+                <ChevronDown className="h-4 w-4 text-blue-400 shrink-0" />
               </button>
             </div>
           ) : (
             <div className="bg-blue-50/50 rounded-xl p-3 border border-blue-100 flex flex-col gap-0.5">
               <span className="text-[9px] font-extrabold uppercase tracking-wider text-blue-700">Linked Estimate Quote</span>
-              <span className="text-sm font-bold text-blue-950">{prefillItem.item_name}</span>
+              <span className="text-xs font-bold text-blue-950">{prefillItem.item_name}</span>
             </div>
           )}
 
-          {/* Description Input (Always Visible & Editable) */}
+          {/* Description Input */}
           <div>
             <label className="text-xs font-semibold text-gray-700 block mb-1">Item / Description *</label>
             <input
               type="text"
               value={form.item_name}
               onChange={(e) => setForm((p) => ({ ...p, item_name: e.target.value }))}
-              className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white text-gray-900 font-semibold focus:ring-2 focus:ring-primary focus:outline-none"
-              placeholder="e.g. Sand delivery, Labour payment"
+              className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-900 font-semibold focus:border-gray-500 focus:outline-none"
+              placeholder="e.g. Sand delivery, Cement purchase, Labour payment..."
             />
           </div>
 
-          {/* Category Selection (Always Visible & Editable) */}
+          {/* Category Selection */}
           <div>
             <label className="text-xs font-semibold text-gray-700 block mb-1">Category *</label>
             <select
               value={form.category}
               onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
-              className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white text-gray-900 font-semibold focus:ring-2 focus:ring-primary focus:outline-none"
+              className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-950 font-semibold focus:border-gray-500 focus:outline-none"
             >
-              <option value="">Select category</option>
+              <option value="">Select category...</option>
               {CATEGORIES.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -414,35 +414,35 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
             const isUnderOrOnBudget = isLinked && hasAmount && quotedCost !== undefined && inputAmount <= quotedCost;
             const variance = isLinked && quotedCost !== undefined ? inputAmount - quotedCost : 0;
 
-            let borderClass = "border-border focus:ring-primary";
+            let borderClass = "border-border focus:border-gray-500";
             if (isOverBudget) {
-              borderClass = "border-red-300 focus:ring-red-500 text-red-700 bg-red-50/10";
+              borderClass = "border-red-300 focus:border-red-500 text-red-900 bg-red-50/10";
             } else if (isUnderOrOnBudget) {
-              borderClass = "border-emerald-300 focus:ring-emerald-500 text-emerald-700 bg-emerald-50/10";
+              borderClass = "border-emerald-300 focus:border-emerald-500 text-emerald-900 bg-emerald-50/10";
             }
 
             return (
               <>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={`text-xs font-medium block mb-1 ${isOverBudget ? "text-red-600 font-semibold" : (isUnderOrOnBudget ? "text-emerald-700 font-semibold" : "text-gray-700")}`}>
+                    <label className={`text-xs font-semibold block mb-1 ${isOverBudget ? "text-red-600" : (isUnderOrOnBudget ? "text-emerald-700" : "text-gray-700")}`}>
                       Amount (₹) *
                     </label>
                     <input
                       type="number"
                       value={form.amount}
                       onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
-                      className={`w-full h-12 border rounded-lg px-3 text-sm font-sans ${borderClass}`}
+                      className={`w-full h-11 border rounded-xl px-3 text-xs font-sans font-bold ${borderClass}`}
                       placeholder="0"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-700 block mb-1">Date</label>
+                    <label className="text-xs font-semibold text-gray-700 block mb-1">Date</label>
                     <input
                       type="date"
                       value={form.date}
                       onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
-                      className="w-full h-12 border border-border rounded-lg px-3 text-sm"
+                      className="w-full h-11 border border-border rounded-xl px-3 text-xs font-sans font-semibold focus:border-gray-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -451,21 +451,21 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
                 {isLinked && quotedCost !== undefined && hasAmount && (
                   <div className="mt-1">
                     {isOverBudget ? (
-                      <div className="p-3 bg-red-50 rounded-xl border border-red-100 text-red-700 space-y-0.5">
+                      <div className="p-3 bg-red-50 rounded-xl border border-red-100 text-red-700 space-y-0.5 shadow-xs">
                         <p className="text-xs font-bold flex items-center gap-1.5">
                           <span>⚠️ Over Budget!</span>
                         </p>
-                        <p className="text-[11px] text-red-600">
-                          Quote estimate was <span className="font-semibold">₹{quotedCost.toLocaleString("en-IN")}</span>. You are spending <span className="font-bold">+₹{variance.toLocaleString("en-IN")}</span> more than budgeted.
+                        <p className="text-[11px] text-red-600 font-medium">
+                          Quote estimate was <span className="font-bold">₹{quotedCost.toLocaleString("en-IN")}</span>. You are spending <span className="font-bold">+₹{variance.toLocaleString("en-IN")}</span> more than budgeted.
                         </p>
                       </div>
                     ) : (
-                      <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-emerald-800 space-y-0.5">
+                      <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-emerald-800 space-y-0.5 shadow-xs">
                         <p className="text-xs font-bold flex items-center gap-1.5">
                           <span>✅ Under/On Budget!</span>
                         </p>
-                        <p className="text-[11px] text-emerald-700">
-                          Quote estimate was <span className="font-semibold">₹{quotedCost.toLocaleString("en-IN")}</span>. Saving of <span className="font-bold">₹{Math.abs(variance).toLocaleString("en-IN")}</span> compared to budget.
+                        <p className="text-[11px] text-emerald-700 font-medium">
+                          Quote estimate was <span className="font-bold">₹{quotedCost.toLocaleString("en-IN")}</span>. Saving of <span className="font-bold">₹{Math.abs(variance).toLocaleString("en-IN")}</span> compared to budget.
                         </p>
                       </div>
                     )}
@@ -475,35 +475,37 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
             );
           })()}
 
+          {/* Paid To */}
           <div>
-            <label className="text-xs font-medium text-gray-700 block mb-1">Worker / Paid To</label>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">Worker / Paid To</label>
             <input
               type="text"
               value={form.worker_name}
               onChange={(e) => setForm((p) => ({ ...p, worker_name: e.target.value }))}
-              className="w-full h-12 border border-border rounded-lg px-3 text-sm"
-              placeholder="e.g. Ravi, Sai Steel & TMT"
+              className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-900 font-medium focus:border-gray-500 focus:outline-none"
+              placeholder="e.g. Ravi, Sai Steel & TMT, contractors..."
             />
           </div>
 
+          {/* Notes */}
           <div>
-            <label className="text-xs font-medium text-gray-700 block mb-1">Notes</label>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">Notes</label>
             <textarea
               value={form.notes}
               onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-              className="w-full border border-border rounded-lg px-3 py-3 text-sm resize-none"
+              className="w-full border border-border rounded-xl px-3.5 py-2.5 text-xs resize-none focus:border-gray-500 focus:outline-none"
               rows={2}
-              placeholder="Any additional notes..."
+              placeholder="Any additional notes or invoice references..."
             />
           </div>
 
-          {/* Receipt upload */}
+          {/* Receipt Upload */}
           <div>
-            <label className="text-xs font-medium text-gray-700 block mb-1">Receipt / Invoice</label>
-            <label className="flex items-center gap-3 w-full h-12 border-2 border-dashed border-border rounded-lg px-3 cursor-pointer hover:border-gray-400 transition-colors">
-              <Upload className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              <span className="text-sm text-muted-foreground truncate">
-                {receiptFile ? receiptFile.name : "Tap to upload photo or PDF"}
+            <label className="text-xs font-semibold text-gray-700 block mb-1.5">Receipt / Invoice File</label>
+            <label className="flex items-center gap-3 w-full h-11 border-2 border-dashed border-sky-200 bg-sky-50/10 hover:bg-sky-50/30 rounded-xl px-3.5 cursor-pointer hover:border-sky-400 transition-colors">
+              <Upload className="h-4 w-4 text-sky-600 flex-shrink-0" />
+              <span className="text-xs text-sky-700 font-semibold truncate">
+                {receiptFile ? receiptFile.name : "Tap to upload receipt photo or PDF..."}
               </span>
               <input
                 type="file"
@@ -514,21 +516,32 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
             </label>
             {receiptFile && (
               <button
+                type="button"
                 onClick={() => setReceiptFile(null)}
-                className="text-xs text-red-500 mt-1"
+                className="text-[10px] font-bold text-red-600 hover:underline mt-1.5 block"
               >
-                Remove
+                Remove Uploaded Receipt
               </button>
             )}
           </div>
 
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full h-12 bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Save Expense"}
-          </button>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 h-11 border border-border text-gray-900 rounded-xl font-bold text-xs hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 h-11 bg-gray-950 hover:bg-gray-900 text-white rounded-xl font-bold text-xs disabled:opacity-40 flex items-center justify-center gap-1.5 transition-colors"
+            >
+              {saving ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...</> : "Save Expense"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

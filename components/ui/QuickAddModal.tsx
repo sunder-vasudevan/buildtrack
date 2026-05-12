@@ -281,31 +281,61 @@ function QuickFundsForm({ onClose, onSaved }: { onClose: () => void; onSaved: ()
           <button onClick={onClose} className="p-2 text-muted-foreground"><X className="h-4 w-4" /></button>
         </div>
         <div className="p-4 space-y-4">
-          {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg p-3">{error}</p>}
+          {error && <p className="text-sm font-semibold text-red-600 bg-red-50 rounded-xl p-3 border border-red-200">{error}</p>}
           <div>
-            <label className="text-xs font-medium text-gray-700 block mb-1">Source *</label>
-            <input type="text" value={form.source} onChange={(e) => setForm((p) => ({ ...p, source: e.target.value }))} className="w-full h-12 border border-border rounded-lg px-3 text-sm" placeholder="e.g. Personal savings, Bank loan" />
+            <label className="text-xs font-semibold text-gray-700 block mb-1">Source *</label>
+            <input
+              type="text"
+              value={form.source}
+              onChange={(e) => setForm((p) => ({ ...p, source: e.target.value }))}
+              className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-900 font-semibold focus:border-gray-500 focus:outline-none"
+              placeholder="e.g. Personal savings, Bank loan, Partner capital..."
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Amount (₹) *</label>
-              <input type="number" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} className="w-full h-12 border border-border rounded-lg px-3 text-sm" placeholder="0" />
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Amount (₹) *</label>
+              <input
+                type="number"
+                value={form.amount}
+                onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
+                className="w-full h-11 border border-border rounded-xl px-3 text-xs font-sans font-bold bg-white text-gray-900 focus:border-gray-500 focus:outline-none"
+                placeholder="0"
+              />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Date Received</label>
-              <input type="date" value={form.date_received} onChange={(e) => setForm((p) => ({ ...p, date_received: e.target.value }))} className="w-full h-12 border border-border rounded-lg px-3 text-sm" />
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Date Received</label>
+              <input
+                type="date"
+                value={form.date_received}
+                onChange={(e) => setForm((p) => ({ ...p, date_received: e.target.value }))}
+                className="w-full h-11 border border-border rounded-xl px-3 text-xs font-sans font-semibold bg-white text-gray-900 focus:border-gray-500 focus:outline-none"
+              />
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-700 block mb-1">Notes</label>
-            <textarea value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-3 text-sm resize-none" rows={2} placeholder="Any additional notes..." />
+            <label className="text-xs font-semibold text-gray-700 block mb-1">Notes</label>
+            <textarea
+              value={form.notes}
+              onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+              className="w-full border border-border rounded-xl px-3.5 py-2.5 text-xs resize-none focus:border-gray-500 focus:outline-none"
+              rows={2}
+              placeholder="Any details about the source, transaction ID, reference..."
+            />
           </div>
-          <div className="flex gap-3">
-            <button onClick={onClose} className="flex-1 h-12 border border-border text-gray-900 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors">
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={onClose}
+              className="flex-1 h-11 border border-border text-gray-900 rounded-xl font-bold text-xs hover:bg-gray-50 transition-colors"
+            >
               Cancel
             </button>
-            <button onClick={handleSave} disabled={saving} className="flex-1 h-12 bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2">
-              {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Save"}
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 h-11 bg-gray-950 hover:bg-gray-900 text-white rounded-xl font-bold text-xs disabled:opacity-40 flex items-center justify-center gap-1.5 transition-colors"
+            >
+              {saving ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...</> : "Save Funds"}
             </button>
           </div>
         </div>
@@ -407,16 +437,16 @@ function QuickReminderForm({ onClose, onSaved, initialType = "reminder" }: { onC
           <button onClick={onClose} className="p-2 text-muted-foreground"><X className="h-4 w-4" /></button>
         </div>
         <div className="p-4 space-y-4">
-          {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg p-3">{error}</p>}
+          {error && <p className="text-sm font-semibold text-red-600 bg-red-50 rounded-xl p-3 border border-red-200">{error}</p>}
 
           <div>
-            <label className="text-xs font-medium text-gray-700 block mb-1">
+            <label className="text-xs font-semibold text-gray-700 block mb-1">
               {type === "wish" ? "What is your wish / pending work? *" : "Reminder / Task *"}
             </label>
             <textarea
               value={form.text}
               onChange={(e) => setForm((p) => ({ ...p, text: e.target.value }))}
-              className="w-full border border-border rounded-lg px-3 py-3 text-sm resize-none"
+              className="w-full border border-border rounded-xl px-3.5 py-2.5 text-xs resize-none focus:border-gray-500 focus:outline-none bg-white text-gray-900 font-medium"
               rows={3}
               placeholder={type === "wish" ? "e.g. Build modular barbecue deck in lawn..." : "e.g. Call Ravi about steel delivery..."}
               autoFocus
@@ -425,26 +455,29 @@ function QuickReminderForm({ onClose, onSaved, initialType = "reminder" }: { onC
 
           {type !== "wish" && (
             <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Due Date (optional)</label>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Due Date (optional)</label>
               <input
                 type="date"
                 value={form.due_date}
                 onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))}
-                className="w-full h-12 border border-border rounded-lg px-3 text-sm"
+                className="w-full h-11 border border-border rounded-xl px-3 text-xs font-sans font-semibold bg-white text-gray-900 focus:border-gray-500 focus:outline-none"
               />
             </div>
           )}
 
-          <div className="flex gap-3">
-            <button onClick={onClose} className="flex-1 h-12 border border-border text-gray-900 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors">
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={onClose}
+              className="flex-1 h-11 border border-border text-gray-900 rounded-xl font-bold text-xs hover:bg-gray-50 transition-colors"
+            >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={saving || !form.text}
-              className="flex-1 h-12 bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 h-11 bg-gray-950 hover:bg-gray-900 text-white rounded-xl font-bold text-xs disabled:opacity-40 flex items-center justify-center gap-1.5 transition-colors"
             >
-              {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Save"}
+              {saving ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...</> : "Save"}
             </button>
           </div>
         </div>
