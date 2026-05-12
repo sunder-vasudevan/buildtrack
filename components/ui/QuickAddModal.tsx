@@ -37,7 +37,7 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   }, []);
 
   const selectedPhase = phases.find((p) => p.id === form.phase_id);
-  const deliverableOptions = selectedPhase?.deliverables ?? [];
+  const deliverableOptions = (selectedPhase?.deliverables ?? []).map((d) => typeof d === "string" ? { name: d } : d);
 
   async function handleSave() {
     if (!form.phase_id || !form.deliverable_name || !form.description) return;

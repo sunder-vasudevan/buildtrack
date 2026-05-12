@@ -27,7 +27,8 @@ export function UpcomingDeliverablesWidget({ phases }: { phases: Phase[] }) {
 
     phases.forEach((phase) => {
       if (phase.deliverables && Array.isArray(phase.deliverables)) {
-        phase.deliverables.forEach((del) => {
+        phase.deliverables.forEach((item) => {
+          const del = typeof item === "string" ? { name: item, planned_start: null, planned_due: null, actual_due: null } : item;
           if (del.planned_due && !del.actual_due) {
             const dueDate = new Date(del.planned_due);
             dueDate.setHours(0, 0, 0, 0);

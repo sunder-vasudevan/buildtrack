@@ -92,6 +92,12 @@ async function seed() {
     ...d,
     project_id: projectId,
     status: "Not Started",
+    deliverables: d.deliverables.map((name) => ({
+      name,
+      planned_start: d.start_date,
+      planned_due: d.end_date,
+      actual_due: null,
+    })),
   }));
 
   // Update the first phase to be in progress since it's starting now

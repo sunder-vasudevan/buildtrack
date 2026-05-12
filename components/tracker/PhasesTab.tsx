@@ -53,7 +53,8 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
   async function savePhase(id: string) {
     setSaving(true);
     // Merge deliverable actual_due edits
-    const updatedDeliverables = (editing.deliverables ?? []).map((d, i) => {
+    const updatedDeliverables = (editing.deliverables ?? []).map((item, i) => {
+      const d = typeof item === "string" ? { name: item, planned_start: null, planned_due: null, actual_due: null } : item;
       const edits = deliverableEdits[i];
       if (!edits) return d;
       return {
@@ -169,7 +170,8 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
                     <div>
                       <p className="text-xs font-semibold text-gray-700 mb-2">Deliverables</p>
                       <div className="space-y-3">
-                        {phase.deliverables.map((d, i) => {
+                        {phase.deliverables.map((item, i) => {
+                          const d = typeof item === "string" ? { name: item, planned_start: null, planned_due: null, actual_due: null } : item;
                           const targetKey = `${phase.id}_${i}`;
                           const isUploading = uploading === targetKey;
                           const photoUrl = photos[targetKey];

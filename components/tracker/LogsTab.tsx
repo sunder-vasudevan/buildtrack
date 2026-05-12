@@ -35,7 +35,7 @@ export function LogsClient({
 
   const [newDeliverable, setNewDeliverable] = useState("");
   const selectedPhase = phases.find((p) => p.id === form.phase_id);
-  const deliverableOptions = selectedPhase?.deliverables ?? [];
+  const deliverableOptions = (selectedPhase?.deliverables ?? []).map((d) => typeof d === "string" ? { name: d } : d);
 
   // Get project_id from first log or leave blank
   const projectId = logs[0]?.project_id ?? null;
