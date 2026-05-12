@@ -1,12 +1,12 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { Plus, X, PencilLine, Receipt, Landmark, Loader2, Upload, Bell, PenSquare } from "lucide-react";
+import { Plus, X, PencilLine, Receipt, Landmark, Loader2, Upload, Bell, PenSquare, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ExpenseForm } from "@/components/finances/ExpenseForm";
 import { supabase } from "@/lib/supabase";
 
-type Screen = "menu" | "expense" | "log" | "funds" | "reminder" | "note";
+type Screen = "menu" | "expense" | "log" | "funds" | "reminder" | "note" | "wish";
 
 const WEATHER_OPTIONS = ["Sunny", "Cloudy", "Rainy", "Overcast", "Hot"];
 const STATUS_OPTIONS = ["In Progress", "On Track", "Delayed", "Completed", "Paused"];
@@ -370,10 +370,10 @@ function QuickNoteForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
   );
 }
 
-function QuickReminderForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+function QuickReminderForm({ onClose, onSaved, initialType = "reminder" }: { onClose: () => void; onSaved: () => void; initialType?: "reminder" | "wish" }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [type, setType] = useState<"reminder" | "wish">("reminder");
+  const [type, setType] = useState<"reminder" | "wish">(initialType);
   const [form, setForm] = useState({
     text: "",
     due_date: "",
@@ -498,60 +498,70 @@ export function QuickAddModal() {
           {screen === "menu" && (
             <>
               <div className="flex flex-col space-y-1.5">
-                <Dialog.Title className="text-xl font-bold leading-none tracking-tight">Quick Add</Dialog.Title>
+                <Dialog.Title className="text-xl font-bold leading-none tracking-tight text-gray-900">Quick Add</Dialog.Title>
                 <Dialog.Description className="text-sm text-muted-foreground mt-2">
                   What would you like to log today?
                 </Dialog.Description>
               </div>
-              <div className="grid gap-3 py-2">
+              <div className="grid gap-3 py-2 max-h-[60vh] overflow-y-auto pr-1">
                 <button
                   onClick={() => setScreen("log")}
-                  className="flex items-center gap-4 bg-gray-50 hover:bg-gray-100 p-4 rounded-xl border border-border text-left transition-colors"
+                  className="flex items-center gap-4 bg-blue-50/20 hover:bg-blue-50/60 p-4 rounded-xl border border-blue-100 text-left transition-colors"
                 >
                   <div className="bg-blue-100 p-3 rounded-full"><PencilLine className="h-6 w-6 text-blue-700" /></div>
                   <div>
                     <h4 className="font-semibold text-gray-900 text-base">Add Works Completed</h4>
-                    <p className="text-sm text-muted-foreground">Log daily progress with photos</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Log daily progress with photos</p>
                   </div>
                 </button>
                 <button
                   onClick={() => setScreen("expense")}
-                  className="flex items-center gap-4 bg-gray-50 hover:bg-gray-100 p-4 rounded-xl border border-border text-left transition-colors"
+                  className="flex items-center gap-4 bg-emerald-50/20 hover:bg-emerald-50/60 p-4 rounded-xl border border-emerald-100 text-left transition-colors"
                 >
                   <div className="bg-emerald-100 p-3 rounded-full"><Receipt className="h-6 w-6 text-emerald-700" /></div>
                   <div>
                     <h4 className="font-semibold text-gray-900 text-base">Add Expense / Receipt</h4>
-                    <p className="text-sm text-muted-foreground">Record a payment with optional receipt</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Record a payment with optional receipt</p>
                   </div>
                 </button>
                 <button
                   onClick={() => setScreen("funds")}
-                  className="flex items-center gap-4 bg-gray-50 hover:bg-gray-100 p-4 rounded-xl border border-border text-left transition-colors"
+                  className="flex items-center gap-4 bg-orange-50/20 hover:bg-orange-50/60 p-4 rounded-xl border border-orange-100 text-left transition-colors"
                 >
                   <div className="bg-orange-100 p-3 rounded-full"><Landmark className="h-6 w-6 text-orange-700" /></div>
                   <div>
                     <h4 className="font-semibold text-gray-900 text-base">Add Funds</h4>
-                    <p className="text-sm text-muted-foreground">Record capital received for the project</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Record capital received for the project</p>
                   </div>
                 </button>
                 <button
                   onClick={() => setScreen("reminder")}
-                  className="flex items-center gap-4 bg-gray-50 hover:bg-gray-100 p-4 rounded-xl border border-border text-left transition-colors"
+                  className="flex items-center gap-4 bg-purple-50/20 hover:bg-purple-50/60 p-4 rounded-xl border border-purple-100 text-left transition-colors"
                 >
                   <div className="bg-purple-100 p-3 rounded-full"><Bell className="h-6 w-6 text-purple-700" /></div>
                   <div>
                     <h4 className="font-semibold text-gray-900 text-base">Reminder / Followup</h4>
-                    <p className="text-sm text-muted-foreground">Set a reminder or followup task</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Set a reminder or calendar followup task</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setScreen("wish")}
+                  className="flex items-center gap-4 bg-rose-50/20 hover:bg-rose-50/60 p-4 rounded-xl border border-rose-100 text-left transition-colors"
+                >
+                  <div className="bg-rose-100 p-3 rounded-full"><Sparkles className="h-6 w-6 text-rose-700" /></div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 text-base">Wishlist / Pending Work</h4>
+                    <p className="text-xs text-muted-foreground mt-0.5">Add backlog items or project backlog desires</p>
                   </div>
                 </button>
                 <button
                   onClick={() => setScreen("note")}
-                  className="flex items-center gap-4 bg-gray-50 hover:bg-gray-100 p-4 rounded-xl border border-border text-left transition-colors"
+                  className="flex items-center gap-4 bg-amber-50/20 hover:bg-amber-50/60 p-4 rounded-xl border border-amber-100 text-left transition-colors"
                 >
                   <div className="bg-amber-100 p-3 rounded-full"><PenSquare className="h-6 w-6 text-amber-700" /></div>
                   <div>
                     <h4 className="font-semibold text-gray-900 text-base">Project Jotting / Note</h4>
-                    <p className="text-sm text-muted-foreground">Quickly jot down design thoughts or notes</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Quickly jot down design thoughts or notes</p>
                   </div>
                 </button>
               </div>
@@ -567,7 +577,8 @@ export function QuickAddModal() {
           {screen === "log" && <QuickLogForm onClose={handleClose} onSaved={() => { handleClose(); window.location.reload(); }} />}
           {screen === "expense" && <ExpenseForm onClose={handleClose} onSaved={() => { handleClose(); window.location.reload(); }} />}
           {screen === "funds" && <QuickFundsForm onClose={handleClose} onSaved={() => { handleClose(); window.location.reload(); }} />}
-          {screen === "reminder" && <QuickReminderForm onClose={handleClose} onSaved={() => { handleClose(); window.location.reload(); }} />}
+          {screen === "reminder" && <QuickReminderForm onClose={handleClose} onSaved={() => { handleClose(); window.location.reload(); }} initialType="reminder" />}
+          {screen === "wish" && <QuickReminderForm onClose={handleClose} onSaved={() => { handleClose(); window.location.reload(); }} initialType="wish" />}
           {screen === "note" && <QuickNoteForm onClose={handleClose} onSaved={() => { handleClose(); window.location.reload(); }} />}
         </Dialog.Content>
       </Dialog.Portal>

@@ -150,18 +150,6 @@ export function ReminderWidget({ initialReminders }: { initialReminders: Reminde
           if (incomplete) {
             setReminders(incomplete as Reminder[]);
           }
-
-          if (showCompleted) {
-            const { data: done } = await supabase
-              .from("reminders")
-              .select("*")
-              .eq("done", true)
-              .order("due_date", { ascending: false })
-              .limit(15);
-            if (done) {
-              setCompletedReminders((done as Reminder[]).filter((r) => !isWish(r.text)));
-            }
-          }
         }
       )
       .subscribe();
@@ -169,7 +157,7 @@ export function ReminderWidget({ initialReminders }: { initialReminders: Reminde
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [showCompleted]);
+  }, []);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-border overflow-hidden">
@@ -460,18 +448,6 @@ export function PendingTasksWidget({ initialReminders }: { initialReminders: Rem
           if (incomplete) {
             setReminders(incomplete as Reminder[]);
           }
-
-          if (showCompleted) {
-            const { data: done } = await supabase
-              .from("reminders")
-              .select("*")
-              .eq("done", true)
-              .order("due_date", { ascending: false })
-              .limit(15);
-            if (done) {
-              setCompletedReminders((done as Reminder[]).filter((r) => isWish(r.text)));
-            }
-          }
         }
       )
       .subscribe();
@@ -479,7 +455,7 @@ export function PendingTasksWidget({ initialReminders }: { initialReminders: Rem
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [showCompleted]);
+  }, []);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-border overflow-hidden">
