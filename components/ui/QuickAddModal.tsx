@@ -1,12 +1,12 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { Plus, X, PencilLine, Receipt, Landmark, Loader2, Upload, Bell } from "lucide-react";
+import { Plus, X, PencilLine, Receipt, Landmark, Loader2, Upload, Bell, PenSquare } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ExpenseForm } from "@/components/finances/ExpenseForm";
 import { supabase } from "@/lib/supabase";
 
-type Screen = "menu" | "expense" | "log" | "funds" | "reminder";
+type Screen = "menu" | "expense" | "log" | "funds" | "reminder" | "note";
 
 const WEATHER_OPTIONS = ["Sunny", "Cloudy", "Rainy", "Overcast", "Hot"];
 const STATUS_OPTIONS = ["In Progress", "On Track", "Delayed", "Completed", "Paused"];
@@ -86,102 +86,155 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
         <div className="p-4 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Date</label>
-              <input type="date" value={form.log_date} onChange={(e) => setForm((p) => ({ ...p, log_date: e.target.value }))} className="w-full h-12 border border-border rounded-lg px-3 text-sm" />
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Date</label>
+              <input type="date" value={form.log_date} onChange={(e) => setForm((p) => ({ ...p, log_date: e.target.value }))} className="w-full h-11 border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-gray-400" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Status</label>
-              <select value={form.work_status} onChange={(e) => setForm((p) => ({ ...p, work_status: e.target.value }))} className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white">
-                {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">No. of Workers</label>
+              <input
+                type="number"
+                disabled={form.category !== "Labour"}
+                value={form.no_of_labour}
+                onChange={(e) => setForm((p) => ({ ...p, no_of_labour: e.target.value }))}
+                className="w-full h-11 border border-border rounded-xl px-3 text-sm disabled:opacity-40 disabled:bg-gray-50 focus:border-gray-500 focus:outline-none"
+                placeholder={form.category === "Labour" ? "e.g. 5" : "N/A"}
+              />
             </div>
           </div>
+
           <div>
-            <label className="text-xs font-medium text-gray-700 block mb-1">Phase</label>
-            <select value={form.phase_id} onChange={(e) => { setForm((p) => ({ ...p, phase_id: e.target.value, deliverable_name: "" })); setNewDeliverable(""); }} className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white">
+            <label className="text-xs font-semibold text-gray-700 block mb-1.5">Work Status</label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { value: "In Progress", label: "⏳ In Progress", activeColor: "bg-blue-100 border-blue-400 text-blue-900" },
+                { value: "On Track", label: "🟢 On Track", activeColor: "bg-emerald-100 border-emerald-400 text-emerald-900" },
+                { value: "Delayed", label: "🔴 Delayed", activeColor: "bg-red-100 border-red-400 text-red-900" },
+                { value: "Completed", label: "✅ Completed", activeColor: "bg-teal-100 border-teal-400 text-teal-900" },
+                { value: "Paused", label: "⏸️ Paused", activeColor: "bg-purple-100 border-purple-400 text-purple-900" },
+              ].map((sc) => (
+                <button
+                  key={sc.value}
+                  type="button"
+                  onClick={() => setForm(p => ({ ...p, work_status: sc.value }))}
+                  className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
+                    form.work_status === sc.value
+                      ? `${sc.activeColor} shadow-xs scale-102`
+                      : "bg-white border-border text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {sc.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1.5">Category</label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { value: "Labour", label: "👷 Labour", activeColor: "bg-amber-100 border-amber-400 text-amber-900" },
+                { value: "Material", label: "🧱 Material", activeColor: "bg-orange-100 border-orange-400 text-orange-900" },
+                { value: "Equipment", label: "🚜 Equipment", activeColor: "bg-blue-100 border-blue-400 text-blue-900" },
+                { value: "Progress", label: "📈 Progress", activeColor: "bg-emerald-100 border-emerald-400 text-emerald-900" },
+                { value: "Others", label: "🔮 Others", activeColor: "bg-gray-100 border-gray-400 text-gray-950" },
+              ].map((cat) => (
+                <button
+                  key={cat.value}
+                  type="button"
+                  onClick={() => setForm(p => ({ ...p, category: cat.value, no_of_labour: cat.value === "Labour" ? p.no_of_labour : "" }))}
+                  className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
+                    form.category === cat.value
+                      ? `${cat.activeColor} shadow-xs scale-102`
+                      : "bg-white border-border text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">Phase</label>
+            <select value={form.phase_id} onChange={(e) => { setForm((p) => ({ ...p, phase_id: e.target.value, deliverable_name: "" })); setNewDeliverable(""); }} className="w-full h-11 border border-border rounded-xl px-3 text-sm bg-white focus:outline-none focus:border-gray-400">
               <option value="">No phase selected</option>
               {phases.map((ph) => <option key={ph.id} value={ph.id}>{ph.name}</option>)}
             </select>
           </div>
+
           {form.phase_id && (
             <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Deliverable</label>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Deliverable</label>
               <select
                 value={newDeliverable ? "__new__" : form.deliverable_name}
                 onChange={(e) => {
                   if (e.target.value === "__new__") { setNewDeliverable(" "); setForm((p) => ({ ...p, deliverable_name: "" })); }
                   else { setNewDeliverable(""); setForm((p) => ({ ...p, deliverable_name: e.target.value })); }
                 }}
-                className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white"
+                className="w-full h-11 border border-border rounded-xl px-3 text-sm bg-white focus:outline-none focus:border-gray-400"
               >
                 <option value="">No deliverable selected</option>
                 {deliverableOptions.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
                 <option value="__new__">+ Add new deliverable...</option>
               </select>
               {newDeliverable !== "" && (
-                <input type="text" value={newDeliverable.trim()} onChange={(e) => { setNewDeliverable(e.target.value); setForm((p) => ({ ...p, deliverable_name: e.target.value })); }} className="w-full h-10 border border-border rounded-lg px-3 text-sm mt-2" placeholder="Enter new deliverable name..." />
+                <input type="text" value={newDeliverable.trim()} onChange={(e) => { setNewDeliverable(e.target.value); setForm((p) => ({ ...p, deliverable_name: e.target.value })); }} className="w-full h-10 border border-border rounded-xl px-3 text-sm mt-2 focus:outline-none focus:border-gray-400" placeholder="Enter new deliverable name..." />
               )}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">Category</label>
-              <select
-                value={form.category}
-                onChange={(e) => setForm((p) => ({ ...p, category: e.target.value, no_of_labour: e.target.value === "Labour" ? p.no_of_labour : "" }))}
-                className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white"
-              >
-                <option value="Labour">Labour</option>
-                <option value="Material">Material</option>
-                <option value="Equipment">Equipment</option>
-                <option value="Progress">Progress</option>
-                <option value="Others">Others</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700 block mb-1">
-                {form.category === "Labour" ? "No. of Labour" : "Labour Count (N/A)"}
-              </label>
-              <input
-                type="number"
-                disabled={form.category !== "Labour"}
-                value={form.no_of_labour}
-                onChange={(e) => setForm((p) => ({ ...p, no_of_labour: e.target.value }))}
-                className="w-full h-12 border border-border rounded-lg px-3 text-sm disabled:opacity-50 disabled:bg-gray-50 focus:border-gray-500 focus:outline-none"
-                placeholder={form.category === "Labour" ? "e.g. 5" : "—"}
-              />
+
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">Work Description *</label>
+            <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="w-full border border-border rounded-xl px-3.5 py-3 text-xs resize-none focus:outline-none focus:border-gray-400" rows={3} placeholder="Describe what progress was achieved today..." />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1.5">Weather Condition</label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { value: "Sunny", label: "☀️ Sunny", activeColor: "bg-amber-50 border-amber-300 text-amber-800" },
+                { value: "Cloudy", label: "☁️ Cloudy", activeColor: "bg-blue-50 border-blue-200 text-blue-700" },
+                { value: "Rainy", label: "🌧️ Rainy", activeColor: "bg-indigo-50 border-indigo-300 text-indigo-700" },
+                { value: "Overcast", label: "🌫️ Overcast", activeColor: "bg-slate-100 border-slate-300 text-slate-700" },
+                { value: "Hot", label: "🥵 Hot", activeColor: "bg-red-50 border-red-300 text-red-800" },
+              ].map((wc) => (
+                <button
+                  key={wc.value}
+                  type="button"
+                  onClick={() => setForm(p => ({ ...p, weather: wc.value }))}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+                    form.weather === wc.value
+                      ? `${wc.activeColor} shadow-xs scale-102`
+                      : "bg-white border-border text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {wc.label}
+                </button>
+              ))}
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-700 block mb-1">Work Description *</label>
-            <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-3 text-sm resize-none" rows={4} placeholder="What was done today..." />
+            <label className="text-xs font-semibold text-gray-700 block mb-1">Issues (optional)</label>
+            <textarea value={form.issues} onChange={(e) => setForm((p) => ({ ...p, issues: e.target.value }))} className="w-full border border-border rounded-xl px-3.5 py-2.5 text-xs resize-none focus:outline-none focus:border-gray-400" rows={2} placeholder="Any issues or blockers encountered..." />
           </div>
+
           <div>
-            <label className="text-xs font-medium text-gray-700 block mb-1">Weather</label>
-            <select value={form.weather} onChange={(e) => setForm((p) => ({ ...p, weather: e.target.value }))} className="w-full h-12 border border-border rounded-lg px-3 text-sm bg-white">
-              {WEATHER_OPTIONS.map((w) => <option key={w} value={w}>{w}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-gray-700 block mb-1">Issues (optional)</label>
-            <textarea value={form.issues} onChange={(e) => setForm((p) => ({ ...p, issues: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-3 text-sm resize-none" rows={2} placeholder="Any issues..." />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-gray-700 block mb-1">Photos</label>
-            <label className="flex items-center gap-3 w-full h-12 border-2 border-dashed border-border rounded-lg px-3 cursor-pointer hover:border-gray-400 transition-colors">
-              <Upload className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              <span className="text-sm text-muted-foreground truncate">
-                {photoFiles.length > 0 ? `${photoFiles.length} photo${photoFiles.length !== 1 ? "s" : ""} selected` : "Tap to add photos"}
+            <label className="text-xs font-semibold text-gray-700 block mb-1">Progress Photos</label>
+            <label className="flex items-center gap-3 w-full h-12 border-2 border-dashed border-sky-200 bg-sky-50/10 hover:bg-sky-50/30 rounded-xl px-3.5 cursor-pointer hover:border-sky-400 transition-colors">
+              <Upload className="h-4 w-4 text-sky-600 flex-shrink-0" />
+              <span className="text-xs text-sky-700 font-semibold truncate">
+                {photoFiles.length > 0 ? `${photoFiles.length} photo${photoFiles.length !== 1 ? "s" : ""} selected` : "Tap to add site photos..."}
               </span>
               <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => setPhotoFiles(Array.from(e.target.files ?? []))} />
             </label>
           </div>
+
           <div className="flex gap-3">
             <button onClick={onClose} className="flex-1 h-12 border border-border text-gray-900 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors">
               Cancel
             </button>
-            <button onClick={handleSave} disabled={saving || !form.phase_id || !form.deliverable_name || !form.description} className="flex-1 h-12 bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+            <button onClick={handleSave} disabled={saving || !form.phase_id || !form.deliverable_name || !form.description} className="flex-1 h-12 bg-gray-950 hover:bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-40 flex items-center justify-center gap-2 transition-colors">
               {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Save Log"}
             </button>
           </div>
@@ -256,6 +309,62 @@ function QuickFundsForm({ onClose, onSaved }: { onClose: () => void; onSaved: ()
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function QuickNoteForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [text, setText] = useState("");
+
+  async function handleSave() {
+    if (!text.trim()) { setError("Note text is required."); return; }
+    setSaving(true);
+    setError("");
+    const { data: project } = await supabase.from("projects").select("id").single();
+    const { error: insertError } = await supabase.from("reminders").insert({
+      project_id: project?.id,
+      text: `[Note] ${text.trim()}`,
+      done: false,
+      due_date: null,
+    });
+    if (insertError) { setError("Failed to save. Try again."); setSaving(false); return; }
+    setSaving(false);
+    onSaved();
+    onClose();
+  }
+
+  return (
+    <div className="p-4 space-y-4">
+      <div className="flex flex-col space-y-1">
+        <h3 className="font-bold text-gray-900 text-lg">Add Project Jotting</h3>
+        <p className="text-xs text-muted-foreground">This note will appear instantly in your Project Jottings & Notepad inside the Project Info tab.</p>
+      </div>
+      {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg p-3">{error}</p>}
+      <div>
+        <label className="text-xs font-medium text-gray-700 block mb-1">Your Jotting / Note *</label>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="w-full border border-border rounded-lg px-3 py-3 text-sm resize-none focus:outline-none focus:border-gray-400"
+          rows={4}
+          placeholder="e.g. Discussed tile grout selection with contractors, decided on off-white matte..."
+          autoFocus
+        />
+      </div>
+      <div className="flex gap-3">
+        <button onClick={onClose} className="flex-1 h-12 border border-border text-gray-900 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors">
+          Cancel
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={saving || !text.trim()}
+          className="flex-1 h-12 bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Save Note"}
+        </button>
       </div>
     </div>
   );
@@ -435,6 +544,16 @@ export function QuickAddModal() {
                     <p className="text-sm text-muted-foreground">Set a reminder or followup task</p>
                   </div>
                 </button>
+                <button
+                  onClick={() => setScreen("note")}
+                  className="flex items-center gap-4 bg-gray-50 hover:bg-gray-100 p-4 rounded-xl border border-border text-left transition-colors"
+                >
+                  <div className="bg-amber-100 p-3 rounded-full"><PenSquare className="h-6 w-6 text-amber-700" /></div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 text-base">Project Jotting / Note</h4>
+                    <p className="text-sm text-muted-foreground">Quickly jot down design thoughts or notes</p>
+                  </div>
+                </button>
               </div>
               <Dialog.Close asChild>
                 <button className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100">
@@ -449,6 +568,7 @@ export function QuickAddModal() {
           {screen === "expense" && <ExpenseForm onClose={handleClose} onSaved={() => { handleClose(); window.location.reload(); }} />}
           {screen === "funds" && <QuickFundsForm onClose={handleClose} onSaved={() => { handleClose(); window.location.reload(); }} />}
           {screen === "reminder" && <QuickReminderForm onClose={handleClose} onSaved={() => { handleClose(); window.location.reload(); }} />}
+          {screen === "note" && <QuickNoteForm onClose={handleClose} onSaved={() => { handleClose(); window.location.reload(); }} />}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

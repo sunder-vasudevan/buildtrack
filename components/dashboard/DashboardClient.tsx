@@ -4,7 +4,7 @@ import { useState } from "react";
 import { formatINR, daysLeft, formatDate, parseLogDescription } from "@/lib/utils";
 import { BudgetItem, DailyLog, Project, Income, Phase, Reminder } from "@/lib/types";
 import { CalendarDays, IndianRupee, X, TrendingUp, Landmark, ShieldAlert, BadgeCheck, FileText } from "lucide-react";
-import { ReminderWidget } from "@/components/dashboard/ReminderWidget";
+import { ReminderWidget, PendingTasksWidget } from "@/components/dashboard/ReminderWidget";
 import { RecentActivityWidget } from "@/components/dashboard/RecentActivityWidget";
 import { UpcomingDeliverablesWidget } from "@/components/dashboard/UpcomingDeliverablesWidget";
 
@@ -200,6 +200,9 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
 
       {/* Reminders widget */}
       <ReminderWidget initialReminders={reminders} />
+
+      {/* Pending Tasks & Wishlist accordion */}
+      <PendingTasksWidget initialReminders={reminders} />
 
       {/* Recent logs */}
       <RecentActivityWidget recentLogs={recentLogs} />

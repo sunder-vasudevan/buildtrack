@@ -182,7 +182,7 @@ export function TrackerClient({ phases, logs, initialReminders }: TrackerClientP
               <Sparkles className="h-4.5 w-4.5 text-amber-600" />
             </div>
             <div>
-              <p className="font-bold text-sm text-gray-900">Wish List & Pending Scope</p>
+              <p className="font-bold text-sm text-gray-900">Wish List & Pending Tasks</p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {activeWishes.length} dream features, backlog details, or design ideas
               </p>
