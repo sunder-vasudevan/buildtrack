@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { BudgetItem, Income } from "@/lib/types";
-import { formatINR, formatDate } from "@/lib/utils";
+import { formatINR, formatDate, parseDeliverableFromNotes, cleanDeliverableNotes } from "@/lib/utils";
 import { ChevronDown, ChevronUp, PencilLine, Download, Plus, Landmark, ArrowDownToLine, X, Loader2, DollarSign, Wallet, Trash2 } from "lucide-react";
 import { ExpenseForm } from "@/components/finances/ExpenseForm";
 import { supabase } from "@/lib/supabase";
@@ -11,9 +11,10 @@ interface FinancesClientProps {
   initialItems: BudgetItem[];
   totalBudget: number;
   initialIncomes: Income[];
+  phases?: { id: string; name: string }[];
 }
 
-export function FinancesClient({ initialItems, totalBudget, initialIncomes }: FinancesClientProps) {
+export function FinancesClient({ initialItems, totalBudget, initialIncomes, phases = [] }: FinancesClientProps) {
   const [items, setItems] = useState<BudgetItem[]>(initialItems);
   const [incomes, setIncomes] = useState<Income[]>(initialIncomes);
   
@@ -364,10 +365,30 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes }: Fi
                         <div className="border-t border-border divide-y divide-border bg-gray-50/10">
                           {catItems.map((item) => {
                             const variance = (item.actual_cost ?? 0) - (item.quoted_cost ?? 0);
+                            const linkedPhase = phases.find((p) => p.id === item.phase_id);
+                            const linkedDel = parseDeliverableFromNotes(item.notes);
+                            const cleanNotes = cleanDeliverableNotes(item.notes);
+
                             return (
                               <div key={item.id} className="px-4 py-3.5 space-y-2">
                                 <div className="flex items-start justify-between gap-3">
-                                  <p className="text-xs font-semibold text-gray-800 flex-1 leading-normal">{item.item_name}</p>
+                                  <div className="flex-1">
+                                    <p className="text-xs font-semibold text-gray-800 leading-normal">{item.item_name}</p>
+                                    {(linkedPhase || linkedDel) && (
+                                      <div className="flex flex-wrap gap-1 mt-1.5">
+                                        {linkedPhase && (
+                                          <span className="text-[9px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded-md border border-indigo-100/50 leading-none">
+                                            🧱 {linkedPhase.name}
+                                          </span>
+                                        )}
+                                        {linkedDel && (
+                                          <span className="text-[9px] font-bold bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-md border border-amber-100/50 leading-none">
+                                            🎯 {linkedDel}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
                                   <div className="flex items-center gap-1.5 shrink-0">
                                     {item.status && (
                                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.status === "Paid" ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-700"}`}>
@@ -409,9 +430,9 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes }: Fi
                                     </p>
                                   </div>
                                 </div>
-                                {item.notes && (
+                                {cleanNotes && (
                                   <p className="text-[10px] text-gray-500 bg-gray-50 rounded p-1.5 mt-1 border border-gray-100/50 break-all whitespace-normal">
-                                    📝 {item.notes}
+                                    📝 {cleanNotes}
                                   </p>
                                 )}
                               </div>

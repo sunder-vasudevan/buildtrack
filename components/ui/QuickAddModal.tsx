@@ -624,12 +624,12 @@ export function QuickAddModal() {
           )}
 
           {/* Form Screens */}
-          {screen === "log" && <QuickLogForm onClose={handleClose} onSaved={() => { handleClose(); window.location.reload(); }} />}
-          {screen === "expense" && <ExpenseForm onClose={handleClose} onSaved={() => { handleClose(); window.location.reload(); }} />}
-          {screen === "funds" && <QuickFundsForm onClose={handleClose} onSaved={() => { handleClose(); window.location.reload(); }} />}
-          {screen === "reminder" && <QuickReminderForm onClose={handleClose} onSaved={() => { handleClose(); window.location.reload(); }} initialType="reminder" />}
-          {screen === "wish" && <QuickReminderForm onClose={handleClose} onSaved={() => { handleClose(); window.location.reload(); }} initialType="wish" />}
-          {screen === "note" && <QuickNoteForm onClose={handleClose} onSaved={() => { handleClose(); window.location.reload(); }} />}
+          {screen === "log" && <QuickLogForm onClose={() => setScreen("menu")} onSaved={() => { handleClose(); window.location.reload(); }} />}
+          {screen === "expense" && <ExpenseForm onClose={() => setScreen("menu")} onSaved={() => { handleClose(); window.location.reload(); }} />}
+          {screen === "funds" && <QuickFundsForm onClose={() => setScreen("menu")} onSaved={() => { handleClose(); window.location.reload(); }} />}
+          {screen === "reminder" && <QuickReminderForm onClose={() => setScreen("menu")} onSaved={() => { handleClose(); window.location.reload(); }} initialType="reminder" />}
+          {screen === "wish" && <QuickReminderForm onClose={() => setScreen("menu")} onSaved={() => { handleClose(); window.location.reload(); }} initialType="wish" />}
+          {screen === "note" && <QuickNoteForm onClose={() => setScreen("menu")} onSaved={() => { handleClose(); window.location.reload(); }} />}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { X, Upload, Loader2, Search, ChevronDown } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { BudgetItem } from "@/lib/types";
+import { parseDeliverableFromNotes, cleanDeliverableNotes } from "@/lib/utils";
 
 const CATEGORIES = [
   "Civil Labour", "Steel & TMT", "Cement & Aggregates", "Bricks & Blocks",
@@ -20,13 +21,18 @@ interface ExpenseFormProps {
 }
 
 export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps) {
+  const parsedDel = prefillItem ? parseDeliverableFromNotes(prefillItem.notes) : "";
+  const initialCleanNotes = prefillItem ? cleanDeliverableNotes(prefillItem.notes) : "";
+
   const [form, setForm] = useState({
     item_name: prefillItem?.item_name ?? "",
     category: prefillItem?.category ?? "",
     amount: prefillItem?.actual_cost ? String(prefillItem.actual_cost) : (prefillItem?.quoted_cost ? String(prefillItem.quoted_cost) : ""),
     date: new Date().toISOString().split("T")[0],
     worker_name: "",
-    notes: "",
+    notes: initialCleanNotes,
+    phase_id: prefillItem?.phase_id ?? "",
+    deliverable_name: parsedDel ?? "",
   });
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
@@ -37,6 +43,7 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
   const [showSelector, setShowSelector] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [phases, setPhases] = useState<any[]>([]);
 
   useEffect(() => {
     async function loadBudgetItems() {
@@ -59,7 +66,14 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
       }
     }
     loadBudgetItems();
+
+    supabase.from("phases").select("id, name, deliverables").order("phase_number").then(({ data }) => {
+      if (data) setPhases(data);
+    });
   }, []);
+
+  const selectedPhase = phases.find((p) => p.id === form.phase_id);
+  const deliverableOptions = (selectedPhase?.deliverables ?? []).map((d: any) => typeof d === "string" ? { name: d } : d);
 
   const filteredBudgetItems = searchQuery.trim()
     ? budgetItems.filter(
@@ -104,15 +118,20 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
   const handleBudgetSelectionChange = (itemId: string) => {
     setSelectedBudgetItemId(itemId);
     if (itemId === "") {
-      setForm((p) => ({ ...p, item_name: "", category: "", amount: "" }));
+      setForm((p) => ({ ...p, item_name: "", category: "", amount: "", phase_id: "", deliverable_name: "", notes: "" }));
     } else {
       const selected = budgetItems.find((item) => item.id === itemId);
       if (selected) {
+        const parsedSelDel = parseDeliverableFromNotes(selected.notes);
+        const cleanSelNotes = cleanDeliverableNotes(selected.notes);
         setForm((p) => ({
           ...p,
           item_name: selected.item_name,
           category: selected.category,
           amount: selected.quoted_cost ? String(selected.quoted_cost) : (selected.actual_cost ? String(selected.actual_cost) : ""),
+          phase_id: selected.phase_id ?? "",
+          deliverable_name: parsedSelDel ?? "",
+          notes: cleanSelNotes,
         }));
       }
     }
@@ -146,11 +165,16 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
     const projectId = project?.id;
 
     const targetId = prefillItem?.id || selectedBudgetItemId;
+    const deliverablePrefix = form.deliverable_name ? `[Deliverable:${form.deliverable_name}]` : "";
+    const cleanNotesInput = form.notes;
 
     if (targetId) {
       // Find original notes to merge if updating
       const targetItem = prefillItem || budgetItems.find((item) => item.id === targetId);
-      const originalNotes = targetItem?.notes || "";
+      const originalCleanNotes = cleanDeliverableNotes(targetItem?.notes);
+
+      const finalNotes = [originalCleanNotes, cleanNotesInput, form.worker_name ? `Worker: ${form.worker_name}` : "", receiptUrl ? `Receipt: ${receiptUrl}` : ""].filter(Boolean).join(" | ");
+      const notesWithPrefix = [deliverablePrefix, finalNotes].filter(Boolean).join(" ");
 
       // Update existing budget item's actual cost
       await supabase
@@ -159,11 +183,15 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
           actual_cost: Number(form.amount),
           status: "Paid",
           payment_date: form.date,
-          notes: [originalNotes, form.notes, form.worker_name ? `Worker: ${form.worker_name}` : "", receiptUrl ? `Receipt: ${receiptUrl}` : ""].filter(Boolean).join(" | ") || null,
+          phase_id: form.phase_id || null,
+          notes: notesWithPrefix || null,
         })
         .eq("id", targetId);
     } else {
       // Insert new budget item as expense
+      const finalNotes = [cleanNotesInput, form.worker_name ? `Worker: ${form.worker_name}` : "", receiptUrl ? `Receipt: ${receiptUrl}` : ""].filter(Boolean).join(" | ");
+      const notesWithPrefix = [deliverablePrefix, finalNotes].filter(Boolean).join(" ");
+
       await supabase.from("budget_items").insert({
         project_id: projectId,
         item_name: form.item_name,
@@ -171,7 +199,8 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
         actual_cost: Number(form.amount),
         status: "Paid",
         payment_date: form.date,
-        notes: [form.notes, form.worker_name ? `Worker: ${form.worker_name}` : "", receiptUrl ? `Receipt: ${receiptUrl}` : ""].filter(Boolean).join(" | ") || null,
+        phase_id: form.phase_id || null,
+        notes: notesWithPrefix || null,
       });
     }
 
@@ -474,6 +503,43 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
               </>
             );
           })()}
+
+          {/* Phase connection (Option A) */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Associated Phase</label>
+              <select
+                value={form.phase_id}
+                onChange={(e) => setForm((p) => ({ ...p, phase_id: e.target.value, deliverable_name: "" }))}
+                className="w-full h-11 border border-border rounded-xl px-2.5 text-xs bg-white text-gray-950 font-semibold focus:border-gray-500 focus:outline-none"
+              >
+                <option value="">— Select Phase (Optional) —</option>
+                {phases.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Deliverable connection (Option B) */}
+            <div>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Linked Deliverable</label>
+              <select
+                value={form.deliverable_name}
+                onChange={(e) => setForm((p) => ({ ...p, deliverable_name: e.target.value }))}
+                disabled={!form.phase_id}
+                className="w-full h-11 border border-border rounded-xl px-2.5 text-xs bg-white text-gray-950 font-semibold focus:border-gray-500 focus:outline-none disabled:opacity-50"
+              >
+                <option value="">— Select Deliverable (Optional) —</option>
+                {deliverableOptions.map((d: any) => (
+                  <option key={d.name} value={d.name}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
 
           {/* Paid To */}
           <div>

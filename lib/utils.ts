@@ -79,3 +79,14 @@ export function parseWishPhase(text: string | null | undefined): { id: string | 
   }
   return { id: null, name: null };
 }
+
+export function parseDeliverableFromNotes(notes: string | null | undefined): string | null {
+  if (!notes) return null;
+  const match = notes.trim().match(/^\[Deliverable:([^\]]*)\]/i);
+  return match ? match[1] : null;
+}
+
+export function cleanDeliverableNotes(notes: string | null | undefined): string {
+  if (!notes) return "";
+  return notes.trim().replace(/^\[Deliverable:[^\]]*\]\s*/i, "").trim();
+}
