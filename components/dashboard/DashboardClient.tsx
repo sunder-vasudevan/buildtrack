@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { formatINR, daysLeft, formatDate, parseLogDescription } from "@/lib/utils";
 import { BudgetItem, DailyLog, Project, Income, Phase, Reminder } from "@/lib/types";
-import { CalendarDays, IndianRupee, X, TrendingUp, Landmark, ShieldAlert, BadgeCheck, FileText } from "lucide-react";
+import { CalendarDays, IndianRupee, X, TrendingUp, Landmark, ShieldAlert, BadgeCheck, FileText, Loader2, Edit3, Save, PencilLine, Trash2 } from "lucide-react";
 import { ReminderWidget, PendingTasksWidget } from "@/components/dashboard/ReminderWidget";
 import { RecentActivityWidget } from "@/components/dashboard/RecentActivityWidget";
 import { UpcomingDeliverablesWidget } from "@/components/dashboard/UpcomingDeliverablesWidget";
+import { ExpenseForm } from "@/components/finances/ExpenseForm";
+import { supabase } from "@/lib/supabase";
 
 interface DashboardClientProps {
   initialData: {
@@ -23,17 +25,134 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
   const { project, budgetItems, recentLogs, incomes, phases, reminders } = initialData;
   const [activeModal, setActiveModal] = useState<"budget" | "funds" | "spent" | "variance" | null>(null);
 
-  const totalBudget = project?.total_budget ?? 21_74_500;
-  const spent = budgetItems.reduce((s, i) => s + (i.actual_cost ?? 0), 0);
-  const totalIncome = incomes.reduce((s, i) => s + (i.amount ?? 0), 0);
+  // Stateful copies for real-time responsiveness
+  const [currentProject, setCurrentProject] = useState<Project | null>(project);
+  const [items, setItems] = useState<BudgetItem[]>(budgetItems);
+  const [allIncomes, setAllIncomes] = useState<Income[]>(incomes);
+  const [logs, setLogs] = useState<DailyLog[]>(recentLogs);
+  const [allReminders, setAllReminders] = useState<Reminder[]>(reminders);
+
+  // States for live budget editing
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
+  const [newBudgetValue, setNewBudgetValue] = useState("");
+  const [savingBudget, setSavingBudget] = useState(false);
+
+  // State for spent details tab and edit expense
+  const [spentTab, setSpentTab] = useState<"categories" | "detailed">("categories");
+  const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
+
+  useEffect(() => {
+    if (currentProject) {
+      setNewBudgetValue(String(currentProject.total_budget));
+    }
+  }, [currentProject]);
+
+  useEffect(() => {
+    const budgetChannel = supabase
+      .channel("dashboard_budget_items")
+      .on("postgres_changes", { event: "*", schema: "public", table: "budget_items" }, async () => {
+        const { data } = await supabase.from("budget_items").select("*").order("category");
+        if (data) setItems(data as BudgetItem[]);
+      })
+      .subscribe();
+
+    const incomeChannel = supabase
+      .channel("dashboard_income")
+      .on("postgres_changes", { event: "*", schema: "public", table: "income" }, async () => {
+        const { data } = await supabase.from("income").select("*").order("date_received", { ascending: false });
+        if (data) setAllIncomes(data as Income[]);
+      })
+      .subscribe();
+
+    const logsChannel = supabase
+      .channel("dashboard_logs")
+      .on("postgres_changes", { event: "*", schema: "public", table: "daily_logs" }, async () => {
+        const { data } = await supabase.from("daily_logs").select("*").order("log_date", { ascending: false }).limit(3);
+        if (data) setLogs(data as DailyLog[]);
+      })
+      .subscribe();
+
+    const remindersChannel = supabase
+      .channel("dashboard_reminders")
+      .on("postgres_changes", { event: "*", schema: "public", table: "reminders" }, async () => {
+        const { data } = await supabase.from("reminders").select("*").eq("done", false).order("due_date", { ascending: true });
+        if (data) setAllReminders(data as Reminder[]);
+      })
+      .subscribe();
+
+    const projectChannel = supabase
+      .channel("dashboard_projects")
+      .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, async () => {
+        const { data } = await supabase.from("projects").select("*").single();
+        if (data) setCurrentProject(data as Project);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(budgetChannel);
+      supabase.removeChannel(incomeChannel);
+      supabase.removeChannel(logsChannel);
+      supabase.removeChannel(remindersChannel);
+      supabase.removeChannel(projectChannel);
+    };
+  }, []);
+
+  async function handleSaveBudget() {
+    const val = Number(newBudgetValue);
+    if (isNaN(val) || val <= 0) return;
+    setSavingBudget(true);
+    const { data: proj } = await supabase.from("projects").select("id").single();
+    if (proj?.id) {
+      await supabase.from("projects").update({ total_budget: val }).eq("id", proj.id);
+      setIsEditingBudget(false);
+    }
+    setSavingBudget(false);
+  }
+
+  async function handleDeleteExpense(item: BudgetItem) {
+    const isCustom = !item.quoted_cost;
+    const confirmMessage = isCustom
+      ? `Are you sure you want to permanently delete the custom expense "${item.item_name}"?`
+      : `Are you sure you want to reset/delete the logged payment of ${formatINR(item.actual_cost || 0)} for "${item.item_name}"?`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      if (isCustom) {
+        const { error } = await supabase.from("budget_items").delete().eq("id", item.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("budget_items")
+          .update({
+            actual_cost: null,
+            payment_date: null,
+            status: "Approved",
+            notes: null,
+            receipt_url: null,
+          })
+          .eq("id", item.id);
+        if (error) throw error;
+      }
+    } catch (err) {
+      console.error("Error deleting expense:", err);
+      alert("Failed to delete. Please try again.");
+    }
+  }
+
+  const totalBudget = currentProject?.total_budget ?? 21_74_500;
+  const spent = items.reduce((s, i) => s + (i.actual_cost ?? 0), 0);
+  const totalIncome = allIncomes.reduce((s, i) => s + (i.amount ?? 0), 0);
   const remaining = totalBudget - spent;
-  const days = project ? daysLeft(project.end_date) : 0;
+  const days = currentProject ? daysLeft(currentProject.end_date) : 0;
 
   // Group budget items by category
   const categoriesBreakdown = (() => {
     const breakdown: Record<string, { estimate: number; spent: number; itemsCount: number; paidCount: number }> = {};
     
-    budgetItems.forEach((item) => {
+    items.forEach((item) => {
       let cat = item.category || "Misc/Unplanned";
       if (cat === "Vendor Quotes" || cat === "Additional Items") {
         cat = "Vendor Quotes & Additional Items";
@@ -92,7 +211,17 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
   const netBalance = totalIncome - spent;
 
   return (
-    <div className="p-4 space-y-4">
+    <>
+      {editingItem && (
+        <ExpenseForm
+          prefillItem={editingItem}
+          onClose={() => setEditingItem(null)}
+          onSaved={() => {
+            setEditingItem(null);
+          }}
+        />
+      )}
+      <div className="p-4 space-y-4">
       {/* Header */}
       <div className="pt-4 pb-2">
         <h1 className="text-xl font-bold text-gray-900">Vasudha</h1>
@@ -199,17 +328,17 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
       <UpcomingDeliverablesWidget phases={phases} />
 
       {/* Reminders widget */}
-      <ReminderWidget initialReminders={reminders} />
+      <ReminderWidget initialReminders={allReminders} />
 
       {/* Pending Tasks & Wishlist accordion */}
-      <PendingTasksWidget initialReminders={reminders} />
+      <PendingTasksWidget initialReminders={allReminders} />
 
       {/* Recent logs */}
-      <RecentActivityWidget recentLogs={recentLogs} />
+      <RecentActivityWidget recentLogs={logs} phases={phases} />
 
       {/* Footer */}
       <div className="pt-8 pb-16 text-center shrink-0">
-        <p className="text-xs text-muted-foreground">v1.3.2 · 12 May 2026 · Built in Hyderabad with ❤️</p>
+        <p className="text-xs text-muted-foreground">v1.3.3 · 12 May 2026 · Built in Hyderabad with ❤️</p>
       </div>
 
       {/* ================================= DETAIL MODALS ================================= */}
@@ -223,10 +352,33 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
                 <div className="bg-purple-100 p-2 rounded-lg text-purple-700"><TrendingUp className="h-5 w-5" /></div>
                 <div>
                   <h2 className="font-bold text-gray-900 text-sm">Budget & Estimates</h2>
-                  <p className="text-xs text-muted-foreground font-sans">Total: {formatINR(totalBudget)}</p>
+                  {isEditingBudget ? (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <input
+                        type="number"
+                        value={newBudgetValue}
+                        onChange={(e) => setNewBudgetValue(e.target.value)}
+                        className="border border-border rounded-lg px-2 py-0.5 text-xs font-semibold w-28 text-gray-905 bg-white"
+                        autoFocus
+                      />
+                      <button onClick={handleSaveBudget} disabled={savingBudget} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors">
+                        {savingBudget ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                      </button>
+                      <button onClick={() => setIsEditingBudget(false)} className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <p className="text-xs text-muted-foreground font-sans">Total: {formatINR(totalBudget)}</p>
+                      <button onClick={() => { setIsEditingBudget(true); setNewBudgetValue(String(totalBudget)); }} className="text-[10px] text-blue-600 hover:underline flex items-center gap-0.5 font-semibold">
+                        <Edit3 className="h-2.5 w-2.5" /> edit
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
-              <button onClick={() => setActiveModal(null)} className="p-2 text-muted-foreground hover:bg-gray-100 rounded-full transition-colors">
+              <button onClick={() => { setActiveModal(null); setIsEditingBudget(false); }} className="p-2 text-muted-foreground hover:bg-gray-100 rounded-full transition-colors">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -299,11 +451,11 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
             <div className="p-4 overflow-y-auto space-y-4">
               <p className="text-xs text-muted-foreground">Deposit logs received and credited to the farmhouse construction account:</p>
               
-              {incomes.length === 0 ? (
+              {allIncomes.length === 0 ? (
                 <p className="text-xs text-center text-muted-foreground py-8">No deposits recorded yet. 💸</p>
               ) : (
                 <div className="space-y-2.5">
-                  {incomes.map((inc) => (
+                  {allIncomes.map((inc) => (
                     <div key={inc.id} className="border border-border/60 rounded-xl p-3 bg-emerald-50/10 hover:bg-emerald-50/20 transition-all flex flex-col gap-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-semibold text-gray-900 text-xs">{inc.source}</p>
@@ -330,7 +482,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
               <div className="flex items-center gap-2">
                 <div className="bg-orange-100 p-2 rounded-lg text-orange-700"><IndianRupee className="h-5 w-5" /></div>
                 <div>
-                  <h2 className="font-bold text-gray-900 text-sm">Actual Expenditure Breakdown</h2>
+                  <h2 className="font-bold text-gray-900 text-sm">Actual Expenditure</h2>
                   <p className="text-xs text-muted-foreground font-sans">Total Paid: {formatINR(spent)}</p>
                 </div>
               </div>
@@ -338,36 +490,122 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
                 <X className="h-4 w-4" />
               </button>
             </div>
+
+            {/* Tab Selector */}
+            <div className="flex border-b border-border/80 bg-gray-50/50 shrink-0">
+              <button
+                onClick={() => setSpentTab("categories")}
+                className={`flex-1 py-3 text-xs font-bold transition-all border-b-2 text-center ${
+                  spentTab === "categories" ? "border-orange-500 text-orange-700" : "border-transparent text-gray-500 hover:text-gray-900"
+                }`}
+              >
+                Categories
+              </button>
+              <button
+                onClick={() => setSpentTab("detailed")}
+                className={`flex-1 py-3 text-xs font-bold transition-all border-b-2 text-center ${
+                  spentTab === "detailed" ? "border-orange-500 text-orange-700" : "border-transparent text-gray-500 hover:text-gray-900"
+                }`}
+              >
+                Detailed Logs ({items.filter(i => i.actual_cost !== null && i.actual_cost > 0).length})
+              </button>
+            </div>
             
             <div className="p-4 overflow-y-auto space-y-4">
-              <p className="text-xs text-muted-foreground">Breakdown of actual cash expenditures logged across categories:</p>
-              
-              <div className="space-y-3">
-                {categoriesBreakdown.map((cat) => {
-                  if (cat.spent === 0) return null;
-                  const sharePct = spent > 0 ? (cat.spent / spent) * 100 : 0;
-                  return (
-                    <div key={cat.name} className="border border-border/60 rounded-xl p-3 bg-gray-50/30 space-y-1.5">
-                      <div className="flex items-center justify-between text-xs font-semibold">
-                        <span className="text-gray-900">{cat.name}</span>
-                        <span className="text-orange-800 font-sans">{formatINR(cat.spent)}</span>
-                      </div>
-                      
-                      <div className="flex items-center justify-between text-[10px] text-muted-foreground font-sans">
-                        <span>{cat.paidCount} active payment logs</span>
-                        <span>{Math.round(sharePct)}% of total spent</span>
-                      </div>
+              {spentTab === "categories" ? (
+                <>
+                  <p className="text-xs text-muted-foreground">Breakdown of actual cash expenditures logged across categories:</p>
+                  <div className="space-y-3">
+                    {categoriesBreakdown.map((cat) => {
+                      if (cat.spent === 0) return null;
+                      const sharePct = spent > 0 ? (cat.spent / spent) * 100 : 0;
+                      return (
+                        <div key={cat.name} className="border border-border/60 rounded-xl p-3 bg-gray-50/30 space-y-1.5">
+                          <div className="flex items-center justify-between text-xs font-semibold">
+                            <span className="text-gray-900">{cat.name}</span>
+                            <span className="text-orange-800 font-sans">{formatINR(cat.spent)}</span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground font-sans">
+                            <span>{cat.paidCount} active payment logs</span>
+                            <span>{Math.round(sharePct)}% of total spent</span>
+                          </div>
 
-                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-orange-500"
-                          style={{ width: `${sharePct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-orange-500"
+                              style={{ width: `${sharePct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground">Individual expense logs. Tap ✏️ to edit or 🗑️ to delete:</p>
+                  <div className="space-y-3">
+                    {(() => {
+                      const loggedItems = items
+                        .filter((i) => i.actual_cost !== null && i.actual_cost > 0)
+                        .sort((a, b) => {
+                          const dateA = a.payment_date ? new Date(a.payment_date).getTime() : 0;
+                          const dateB = b.payment_date ? new Date(b.payment_date).getTime() : 0;
+                          return dateB - dateA;
+                        });
+
+                      if (loggedItems.length === 0) {
+                        return <p className="text-xs text-center text-muted-foreground py-8">No logged expenses found. 💸</p>;
+                      }
+
+                      return loggedItems.map((item) => (
+                        <div key={item.id} className="border border-border/60 rounded-xl p-3 bg-white hover:bg-gray-50/40 transition-all flex flex-col gap-1.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <p className="font-bold text-gray-900 text-xs">{item.item_name}</p>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                <span className="text-[9px] font-bold bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded border border-orange-100/50">
+                                  📂 {item.category || "Other"}
+                                </span>
+                                {item.payment_date && (
+                                  <span className="text-[9px] font-medium text-muted-foreground bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100/50">
+                                    📅 {formatDate(item.payment_date)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={() => { setEditingItem(item); setActiveModal(null); }}
+                                className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
+                                title="Edit Expense"
+                              >
+                                <PencilLine className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteExpense(item)}
+                                className="p-1 rounded-lg hover:bg-red-50 text-red-500 transition-colors"
+                                title="Delete/Reset Expense"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between border-t border-gray-50/50 pt-1.5 mt-0.5">
+                            <span className="text-[10px] text-muted-foreground italic truncate max-w-[65%]">
+                              {item.notes ? `📝 ${item.notes.replace(/\[Deliverable:.*?\]/g, "").replace(/\|/g, " ").replace(/\s+/g, " ").trim()}` : "No notes"}
+                            </span>
+                            <span className="font-extrabold text-orange-800 text-xs font-sans">
+                              {formatINR(item.actual_cost ?? 0)}
+                            </span>
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -450,5 +688,6 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
         </div>
       )}
     </div>
+    </>
   );
 }

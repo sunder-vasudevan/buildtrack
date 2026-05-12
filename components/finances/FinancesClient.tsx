@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { BudgetItem, Income } from "@/lib/types";
 import { formatINR, formatDate, parseDeliverableFromNotes, cleanDeliverableNotes } from "@/lib/utils";
-import { ChevronDown, ChevronUp, PencilLine, Download, Plus, Landmark, ArrowDownToLine, X, Loader2, DollarSign, Wallet, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, PencilLine, Download, Plus, Landmark, ArrowDownToLine, X, Loader2, DollarSign, Wallet, Trash2, Search } from "lucide-react";
 import { ExpenseForm } from "@/components/finances/ExpenseForm";
 import { supabase } from "@/lib/supabase";
 
@@ -11,7 +11,7 @@ interface FinancesClientProps {
   initialItems: BudgetItem[];
   totalBudget: number;
   initialIncomes: Income[];
-  phases?: { id: string; name: string }[];
+  phases?: any[];
 }
 
 export function FinancesClient({ initialItems, totalBudget, initialIncomes, phases = [] }: FinancesClientProps) {
@@ -24,6 +24,7 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
   const [budgetExpandedCat, setBudgetExpandedCat] = useState<string | null>(null);
   
   const [filterCat, setFilterCat] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
   
   // Add Funds form state
@@ -42,8 +43,20 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
   const cashBalance = totalFunds - spent;
   const remainingBudget = totalBudget - spent;
 
+  const searchQueryLower = searchQuery.toLowerCase().trim();
+
+  const filteredItems = useMemo(() => {
+    if (!searchQueryLower) return items;
+    return items.filter((item) => {
+      const name = (item.item_name || "").toLowerCase();
+      const cat = (item.category || "").toLowerCase();
+      const notes = (item.notes || "").toLowerCase();
+      return name.includes(searchQueryLower) || cat.includes(searchQueryLower) || notes.includes(searchQueryLower);
+    });
+  }, [items, searchQueryLower]);
+
   const grouped = useMemo(() => {
-    return items.reduce<Record<string, BudgetItem[]>>((acc, item) => {
+    const res = filteredItems.reduce<Record<string, BudgetItem[]>>((acc, item) => {
       let cat = item.category || "Other";
       if (cat === "Vendor Quotes" || cat === "Additional Items") {
         cat = "Vendor Quotes & Additional Items";
@@ -57,7 +70,25 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
       acc[cat].push(item);
       return acc;
     }, {});
-  }, [items]);
+
+    // For "Vendor Quotes & Additional Items", sort phase-wise:
+    if (res["Vendor Quotes & Additional Items"]) {
+      res["Vendor Quotes & Additional Items"].sort((a, b) => {
+        const indexA = phases.findIndex((p) => p.id === a.phase_id);
+        const indexB = phases.findIndex((p) => p.id === b.phase_id);
+        
+        const numA = indexA !== -1 ? indexA : 99999;
+        const numB = indexB !== -1 ? indexB : 99999;
+        
+        if (numA !== numB) {
+          return numA - numB;
+        }
+        return (a.item_name || "").localeCompare(b.item_name || "");
+      });
+    }
+
+    return res;
+  }, [filteredItems, phases]);
 
   const categories = useMemo(() => Object.keys(grouped), [grouped]);
   const filteredCategories = filterCat === "all" ? categories : [filterCat];
@@ -85,6 +116,120 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
       supabase.removeChannel(incomeChannel);
     };
   }, []);
+
+  // Proactive automatic phase linking for unlinked quotes/expenses
+  useEffect(() => {
+    if (items.length === 0 || phases.length === 0) return;
+
+    const unlinkedItems = items.filter((item) => !item.phase_id);
+    if (unlinkedItems.length === 0) return;
+
+    async function performAutoLink() {
+      const updates: { id: string; phase_id: string }[] = [];
+
+      for (const item of unlinkedItems) {
+        const text = `${item.item_name || ""} ${item.category || ""} ${item.notes || ""}`.toLowerCase();
+        let matchedPhaseId: string | null = null;
+
+        // 1. Direct match with phase names or deliverable text
+        for (const phase of phases) {
+          const deliverables = phase.deliverables || [];
+          const hasDirectMatch = deliverables.some((d: any) => {
+            const delName = (typeof d === "string" ? d : d.name || "").toLowerCase();
+            return text.includes(delName) || delName.includes(text);
+          });
+
+          if (hasDirectMatch) {
+            matchedPhaseId = phase.id;
+            break;
+          }
+        }
+
+        // 2. Fallback to advanced construction keyword mapping
+        if (!matchedPhaseId) {
+          const keywords = [
+            { key: "excavation", num: 0 },
+            { key: "jcb", num: 0 },
+            { key: "foundation", num: 0 },
+            { key: "footing", num: 0 },
+            { key: "meter", num: 0 },
+            { key: "pcc", num: 1 },
+            { key: "rebar", num: 1 },
+            { key: "column", num: 1 },
+            { key: "plinth", num: 1 },
+            { key: "concrete", num: 1 },
+            { key: "brickwork", num: 2 },
+            { key: "walls", num: 2 },
+            { key: "chowkat", num: 2 },
+            { key: "chowkats", num: 2 },
+            { key: "lintel", num: 2 },
+            { key: "door", num: 2 },
+            { key: "window", num: 2 },
+            { key: "centering", num: 3 },
+            { key: "roof", num: 3 },
+            { key: "slab", num: 3 },
+            { key: "weatherproof", num: 3 },
+            { key: "plastering", num: 4 },
+            { key: "plaster", num: 4 },
+            { key: "waterproofing", num: 4 },
+            { key: "putty", num: 4 },
+            { key: "electrical", num: 5 },
+            { key: "wiring", num: 5 },
+            { key: "conduit", num: 5 },
+            { key: "plumbing", num: 5 },
+            { key: "drainage", num: 5 },
+            { key: "septic", num: 5 },
+            { key: "borewell", num: 5 },
+            { key: "sewage", num: 5 },
+            { key: "copper piping", num: 5 },
+            { key: "flooring", num: 6 },
+            { key: "granite", num: 6 },
+            { key: "woodwork", num: 6 },
+            { key: "wardrobes", num: 6 },
+            { key: "gate", num: 6 },
+            { key: "grille", num: 6 },
+            { key: "grilles", num: 6 },
+            { key: "paint", num: 6 },
+            { key: "safety", num: 7 },
+            { key: "fence", num: 7 },
+            { key: "pump", num: 7 },
+            { key: "tank", num: 7 },
+            { key: "solar", num: 7 },
+            { key: "inverter", num: 7 },
+            { key: "generator", num: 7 },
+            { key: "cleanup", num: 7 }
+          ];
+
+          for (const kw of keywords) {
+            if (text.includes(kw.key)) {
+              const targetPh = phases[kw.num] || phases.find((p, idx) => idx === kw.num);
+              if (targetPh) {
+                matchedPhaseId = targetPh.id;
+                break;
+              }
+            }
+          }
+        }
+
+        if (matchedPhaseId) {
+          updates.push({ id: item.id, phase_id: matchedPhaseId });
+        }
+      }
+
+      if (updates.length > 0) {
+        await Promise.all(
+          updates.map((up) =>
+            supabase
+              .from("budget_items")
+              .update({ phase_id: up.phase_id })
+              .eq("id", up.id)
+          )
+        );
+      }
+    }
+
+    performAutoLink();
+  }, [items, phases]);
 
   function handleExport() {
     const rows: string[] = [];
@@ -322,7 +467,27 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
           </button>
 
           {budgetExpanded && (
-            <div className="border-t border-border bg-gray-50/30 p-4 space-y-3">
+            <div className="border-t border-border bg-gray-50/30 p-4 space-y-3.5">
+              {/* Search bar */}
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search quotes, items, categories, or notes..."
+                  className="w-full h-11 pl-10 pr-16 border border-border rounded-xl text-xs bg-white text-gray-900 font-semibold focus:border-gray-500 focus:outline-none placeholder:text-gray-400"
+                />
+                <Search className="h-4 w-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-500 hover:text-gray-800 transition-colors bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded-lg"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
               {/* Category Filter Pills */}
               <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                 {["all", ...categories].map((cat) => (
@@ -340,11 +505,17 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
 
               {/* Accordions list */}
               <div className="space-y-2.5">
-                {filteredCategories.map((cat) => {
-                  const catItems = grouped[cat];
-                  const catQuoted = catItems.reduce((s, i) => s + (i.quoted_cost ?? 0), 0);
-                  const catActual = catItems.reduce((s, i) => s + (i.actual_cost ?? 0), 0);
-                  const isOpen = budgetExpandedCat === cat;
+                {Object.keys(grouped).length === 0 ? (
+                  <div className="text-center py-10 bg-white rounded-xl border border-border/50 shadow-xs">
+                    <p className="text-xs text-muted-foreground font-semibold">No matching budget items, vendor quotes, or expenses found. 🔍</p>
+                  </div>
+                ) : (
+                  filteredCategories.map((cat) => {
+                    const catItems = grouped[cat];
+                    if (!catItems || catItems.length === 0) return null;
+                    const catQuoted = catItems.reduce((s, i) => s + (i.quoted_cost ?? 0), 0);
+                    const catActual = catItems.reduce((s, i) => s + (i.actual_cost ?? 0), 0);
+                  const isOpen = budgetExpandedCat === cat || searchQueryLower !== "";
 
                   return (
                     <div key={cat} className="bg-white rounded-xl shadow-sm border border-border overflow-hidden transition-all">
@@ -374,13 +545,42 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="flex-1">
                                     <p className="text-xs font-semibold text-gray-800 leading-normal">{item.item_name}</p>
-                                    {(linkedPhase || linkedDel) && (
+                                    {!linkedPhase ? (
+                                      <div className="flex items-center gap-2 mt-2 p-1.5 bg-amber-50/60 rounded-lg border border-amber-100/60 max-w-sm">
+                                        <span className="text-[9px] font-bold text-amber-800 shrink-0">
+                                          ⚠️ Unlinked
+                                        </span>
+                                        <select
+                                          defaultValue=""
+                                          onChange={async (e) => {
+                                            const val = e.target.value;
+                                            if (!val) return;
+                                            try {
+                                              const { error } = await supabase
+                                                .from("budget_items")
+                                                .update({ phase_id: val })
+                                                .eq("id", item.id);
+                                              if (error) throw error;
+                                            } catch (err) {
+                                              console.error("Error linking phase:", err);
+                                              alert("Failed to link phase.");
+                                            }
+                                          }}
+                                          className="flex-1 h-6 bg-white border border-amber-200 text-amber-900 rounded px-1.5 text-[9px] font-bold focus:outline-none focus:border-amber-400 cursor-pointer"
+                                        >
+                                          <option value="">Quick link phase...</option>
+                                          {phases.map((p) => (
+                                            <option key={p.id} value={p.id}>
+                                              🧱 {p.name}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                    ) : (
                                       <div className="flex flex-wrap gap-1 mt-1.5">
-                                        {linkedPhase && (
-                                          <span className="text-[9px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded-md border border-indigo-100/50 leading-none">
-                                            🧱 {linkedPhase.name}
-                                          </span>
-                                        )}
+                                        <span className="text-[9px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded-md border border-indigo-100/50 leading-none">
+                                          🧱 {linkedPhase.name}
+                                        </span>
                                         {linkedDel && (
                                           <span className="text-[9px] font-bold bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-md border border-amber-100/50 leading-none">
                                             🎯 {linkedDel}
@@ -442,7 +642,7 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
                       )}
                     </div>
                   );
-                })}
+                }))}
               </div>
             </div>
           )}

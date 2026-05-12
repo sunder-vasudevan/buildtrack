@@ -9,7 +9,7 @@ export default async function FinancesPage() {
     supabase.from("budget_items").select("*").order("category"),
     supabase.from("projects").select("total_budget").single(),
     supabase.from("income").select("*").order("date_received", { ascending: false }),
-    supabase.from("phases").select("id, name").order("phase_number"),
+    supabase.from("phases").select("id, name, deliverables, phase_number").order("phase_number"),
   ]);
 
   if (budgetRes.error) console.error(budgetRes.error);
@@ -22,7 +22,7 @@ export default async function FinancesPage() {
   const items = (budgetRes.data ?? []) as BudgetItem[];
   const totalBudget = (projectRes.data?.total_budget as number) ?? 2174500;
   const incomes = (incomeRes.data ?? []) as Income[];
-  const phases = (phasesRes.data ?? []) as { id: string; name: string }[];
+  const phases = (phasesRes.data ?? []) as any[];
 
   return (
     <div className="p-4 flex flex-col h-[calc(100vh-4rem)] overflow-y-auto">
@@ -39,7 +39,7 @@ export default async function FinancesPage() {
 
       {/* Footer */}
       <div className="pt-8 pb-16 text-center shrink-0">
-        <p className="text-xs text-muted-foreground">v1.3.2 · 12 May 2026 · Built in Hyderabad with ❤️</p>
+        <p className="text-xs text-muted-foreground">v1.3.3 · 12 May 2026 · Built in Hyderabad with ❤️</p>
       </div>
     </div>
   );

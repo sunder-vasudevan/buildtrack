@@ -4,7 +4,7 @@ import { useState } from "react";
 import { DailyLog, Phase } from "@/lib/types";
 import { formatDate, parseLogDescription } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
-import { Plus, X, Image, Upload, Loader2 } from "lucide-react";
+import { Plus, X, Image, Upload, Loader2, PencilLine, Trash2 } from "lucide-react";
 
 const WEATHER_OPTIONS = ["Sunny", "Cloudy", "Rainy", "Overcast", "Hot"];
 const STATUS_OPTIONS = ["In Progress", "On Track", "Delayed", "Completed", "Paused"];
@@ -19,6 +19,7 @@ export function LogsClient({
   const [logs, setLogs] = useState(initialLogs);
   const [showForm, setShowForm] = useState(false);
   const [viewLog, setViewLog] = useState<DailyLog | null>(null);
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [form, setForm] = useState({
@@ -40,6 +41,40 @@ export function LogsClient({
   // Get project_id from first log or leave blank
   const projectId = logs[0]?.project_id ?? null;
 
+  function startEditLog(log: DailyLog) {
+    const { category, labour, cleanDescription } = parseLogDescription(log.description);
+    setEditingLogId(log.id);
+    setForm({
+      log_date: log.log_date,
+      phase_id: log.phase_id || "",
+      deliverable_name: log.deliverable_name || "",
+      description: cleanDescription || "",
+      weather: log.weather || "Sunny",
+      work_status: log.work_status || "In Progress",
+      issues: log.issues || "",
+      category: category || "Others",
+      no_of_labour: labour || "",
+    });
+    setPhotoFiles([]);
+    setShowForm(true);
+    setViewLog(null);
+  }
+
+  async function handleDeleteLog(logId: string) {
+    if (!window.confirm("Are you sure you want to permanently delete this daily log entry?")) {
+      return;
+    }
+    try {
+      const { error } = await supabase.from("daily_logs").delete().eq("id", logId);
+      if (error) throw error;
+      setLogs((prev) => prev.filter((l) => l.id !== logId));
+      setViewLog(null);
+    } catch (err) {
+      console.error("Error deleting log:", err);
+      alert("Failed to delete log. Please try again.");
+    }
+  }
+
   async function submitLog() {
     if (!form.phase_id || !form.deliverable_name || !form.description) return;
     setSaving(true);
@@ -51,8 +86,12 @@ export function LogsClient({
       pid = data?.id ?? null;
     }
 
+    // Preserve existing photos if editing
+    const originalLog = logs.find((l) => l.id === editingLogId);
+    const existingPhotos = originalLog?.photos || [];
+    const uploadedPhotos = [...existingPhotos];
+
     // Upload photos to Supabase Storage
-    const uploadedPhotos: { url: string; caption: string }[] = [];
     for (const file of photoFiles) {
       const ext = file.name.split(".").pop();
       const path = `logs/${form.log_date}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
@@ -79,22 +118,49 @@ export function LogsClient({
       photos: uploadedPhotos,
     };
 
-    const { data, error } = await supabase.from("daily_logs").insert(payload).select().single();
-    if (!error && data) {
-      setLogs((prev) => [data as DailyLog, ...prev]);
-      setShowForm(false);
-      setPhotoFiles([]);
-      setForm({
-        log_date: new Date().toISOString().split("T")[0],
-        phase_id: "",
-        deliverable_name: "",
-        description: "",
-        weather: "Sunny",
-        work_status: "In Progress",
-        issues: "",
-        category: "Labour",
-        no_of_labour: "",
-      });
+    if (editingLogId) {
+      const { data, error } = await supabase
+        .from("daily_logs")
+        .update(payload)
+        .eq("id", editingLogId)
+        .select()
+        .single();
+
+      if (!error && data) {
+        setLogs((prev) => prev.map((l) => (l.id === editingLogId ? (data as DailyLog) : l)));
+        setShowForm(false);
+        setEditingLogId(null);
+        setPhotoFiles([]);
+        setForm({
+          log_date: new Date().toISOString().split("T")[0],
+          phase_id: "",
+          deliverable_name: "",
+          description: "",
+          weather: "Sunny",
+          work_status: "In Progress",
+          issues: "",
+          category: "Labour",
+          no_of_labour: "",
+        });
+      }
+    } else {
+      const { data, error } = await supabase.from("daily_logs").insert(payload).select().single();
+      if (!error && data) {
+        setLogs((prev) => [data as DailyLog, ...prev]);
+        setShowForm(false);
+        setPhotoFiles([]);
+        setForm({
+          log_date: new Date().toISOString().split("T")[0],
+          phase_id: "",
+          deliverable_name: "",
+          description: "",
+          weather: "Sunny",
+          work_status: "In Progress",
+          issues: "",
+          category: "Labour",
+          no_of_labour: "",
+        });
+      }
     }
     setSaving(false);
   }
@@ -165,7 +231,6 @@ export function LogsClient({
                     );
                   })()}
                   <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                    {log.weather && <span>☁️ {log.weather}</span>}
                     {log.photos && log.photos.length > 0 && <span>📷 {log.photos.length} photo{log.photos.length !== 1 ? "s" : ""}</span>}
                   </div>
                 </div>
@@ -177,8 +242,8 @@ export function LogsClient({
 
       {/* Add Log modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center">
-          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col pb-safe">
             <div className="p-4 border-b border-border sticky top-0 bg-white rounded-t-2xl flex items-center justify-between">
               <h2 className="font-bold text-gray-900">New Log Entry</h2>
               <button onClick={() => setShowForm(false)} className="p-2 text-muted-foreground"><X className="h-4 w-4" /></button>
@@ -299,31 +364,7 @@ export function LogsClient({
                 <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="w-full border border-border rounded-xl px-3.5 py-3 text-xs resize-none focus:outline-none focus:border-gray-400" rows={3} placeholder="Describe what progress was achieved today..." />
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-gray-700 block mb-1.5">Weather Condition</label>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { value: "Sunny", label: "☀️ Sunny", activeColor: "bg-amber-50 border-amber-300 text-amber-800" },
-                    { value: "Cloudy", label: "☁️ Cloudy", activeColor: "bg-blue-50 border-blue-200 text-blue-700" },
-                    { value: "Rainy", label: "🌧️ Rainy", activeColor: "bg-indigo-50 border-indigo-300 text-indigo-700" },
-                    { value: "Overcast", label: "🌫️ Overcast", activeColor: "bg-slate-100 border-slate-300 text-slate-700" },
-                    { value: "Hot", label: "🥵 Hot", activeColor: "bg-red-50 border-red-300 text-red-800" },
-                  ].map((wc) => (
-                    <button
-                      key={wc.value}
-                      type="button"
-                      onClick={() => setForm(p => ({ ...p, weather: wc.value }))}
-                      className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
-                        form.weather === wc.value
-                          ? `${wc.activeColor} shadow-xs scale-102`
-                          : "bg-white border-border text-gray-600 hover:bg-gray-50"
-                      }`}
-                    >
-                      {wc.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+
 
               <div>
                 <label className="text-xs font-semibold text-gray-700 block mb-1">Issues (optional)</label>
@@ -374,7 +415,6 @@ export function LogsClient({
                 </div>
               )}
               <div className="grid grid-cols-2 gap-3 text-sm">
-                {viewLog.weather && <div><p className="text-xs text-muted-foreground">Weather</p><p className="font-medium">☁️ {viewLog.weather}</p></div>}
                 {viewLog.work_status && <div><p className="text-xs text-muted-foreground">Status</p><p className="font-medium">{viewLog.work_status}</p></div>}
                 {viewLog.deliverable_name && <div className="col-span-2"><p className="text-xs text-muted-foreground">Deliverable</p><p className="font-medium text-blue-700">{viewLog.deliverable_name}</p></div>}
               </div>
@@ -394,6 +434,21 @@ export function LogsClient({
               })()}
               {viewLog.issues && <div><p className="text-xs text-muted-foreground mb-1">Issues</p><p className="text-sm text-red-700">{viewLog.issues}</p></div>}
               {viewLog.resolution && <div><p className="text-xs text-muted-foreground mb-1">Resolution</p><p className="text-sm text-emerald-700">{viewLog.resolution}</p></div>}
+              
+              <div className="flex gap-3 pt-3 border-t border-border/40">
+                <button
+                  onClick={() => startEditLog(viewLog)}
+                  className="flex-1 h-11 border border-border text-gray-900 bg-white rounded-xl font-semibold text-xs hover:bg-gray-50 flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <PencilLine className="h-3.5 w-3.5" /> Edit Log
+                </button>
+                <button
+                  onClick={() => handleDeleteLog(viewLog.id)}
+                  className="flex-1 h-11 border border-red-100 bg-white text-red-600 rounded-xl font-semibold text-xs hover:bg-red-50 flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Delete Log
+                </button>
+              </div>
             </div>
           </div>
         </div>

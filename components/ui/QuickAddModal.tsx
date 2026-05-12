@@ -77,168 +77,160 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white w-full sm:max-w-lg rounded-2xl max-h-[80vh] overflow-y-auto shadow-2xl">
-        <div className="p-4 border-b border-border sticky top-0 bg-white rounded-t-2xl flex items-center justify-between">
-          <h2 className="font-bold text-gray-900">Log Work Done</h2>
-          <button onClick={onClose} className="p-2 text-muted-foreground"><X className="h-4 w-4" /></button>
+    <div className="space-y-4">
+      <div className="pb-3 border-b border-border flex items-center justify-between">
+        <h2 className="font-bold text-gray-900 text-lg">Log Work Done</h2>
+        <button onClick={onClose} className="p-2 text-muted-foreground hover:bg-gray-100 rounded-full transition-colors"><X className="h-4 w-4" /></button>
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold text-gray-700 block mb-1.5">Category</label>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { value: "Labour", label: "👷 Labour", activeColor: "bg-amber-100 border-amber-400 text-amber-900" },
+            { value: "Material", label: "🧱 Material", activeColor: "bg-orange-100 border-orange-400 text-orange-900" },
+            { value: "Equipment", label: "🚜 Equipment", activeColor: "bg-blue-100 border-blue-400 text-blue-900" },
+            { value: "Progress", label: "📈 Progress", activeColor: "bg-emerald-100 border-emerald-400 text-emerald-900" },
+            { value: "Others", label: "🔮 Others", activeColor: "bg-gray-100 border-gray-400 text-gray-950" },
+          ].map((cat) => (
+            <button
+              key={cat.value}
+              type="button"
+              onClick={() => setForm(p => ({ ...p, category: cat.value, no_of_labour: cat.value === "Labour" ? p.no_of_labour : "" }))}
+              className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
+                form.category === cat.value
+                  ? `${cat.activeColor} shadow-xs scale-102`
+                  : "bg-white border-border text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
         </div>
-        <div className="p-4 space-y-4">
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1.5">Category</label>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { value: "Labour", label: "👷 Labour", activeColor: "bg-amber-100 border-amber-400 text-amber-900" },
-                { value: "Material", label: "🧱 Material", activeColor: "bg-orange-100 border-orange-400 text-orange-900" },
-                { value: "Equipment", label: "🚜 Equipment", activeColor: "bg-blue-100 border-blue-400 text-blue-900" },
-                { value: "Progress", label: "📈 Progress", activeColor: "bg-emerald-100 border-emerald-400 text-emerald-900" },
-                { value: "Others", label: "🔮 Others", activeColor: "bg-gray-100 border-gray-400 text-gray-950" },
-              ].map((cat) => (
-                <button
-                  key={cat.value}
-                  type="button"
-                  onClick={() => setForm(p => ({ ...p, category: cat.value, no_of_labour: cat.value === "Labour" ? p.no_of_labour : "" }))}
-                  className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
-                    form.category === cat.value
-                      ? `${cat.activeColor} shadow-xs scale-102`
-                      : "bg-white border-border text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-          </div>
+      </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">Date</label>
-              <input type="date" value={form.log_date} onChange={(e) => setForm((p) => ({ ...p, log_date: e.target.value }))} className="w-full h-11 border border-border rounded-xl px-3 text-sm focus:outline-none focus:border-gray-400" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">No. of Workers</label>
-              <input
-                type="number"
-                disabled={form.category !== "Labour"}
-                value={form.no_of_labour}
-                onChange={(e) => setForm((p) => ({ ...p, no_of_labour: e.target.value }))}
-                className="w-full h-11 border border-border rounded-xl px-3 text-sm disabled:opacity-40 disabled:bg-gray-50 focus:border-gray-500 focus:outline-none"
-                placeholder={form.category === "Labour" ? "e.g. 5" : "N/A"}
-              />
-            </div>
-          </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-semibold text-gray-700 block mb-1">Date</label>
+          <input type="date" value={form.log_date} onChange={(e) => setForm((p) => ({ ...p, log_date: e.target.value }))} className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white focus:outline-none focus:border-gray-400" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-700 block mb-1">No. of Workers</label>
+          <input
+            type="number"
+            disabled={form.category !== "Labour"}
+            value={form.no_of_labour}
+            onChange={(e) => setForm((p) => ({ ...p, no_of_labour: e.target.value }))}
+            className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white disabled:opacity-40 disabled:bg-gray-50 focus:border-gray-500 focus:outline-none"
+            placeholder={form.category === "Labour" ? "e.g. 5" : "N/A"}
+          />
+        </div>
+      </div>
 
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1.5">Work Status</label>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { value: "In Progress", label: "⏳ In Progress", activeColor: "bg-blue-100 border-blue-400 text-blue-900" },
-                { value: "On Track", label: "🟢 On Track", activeColor: "bg-emerald-100 border-emerald-400 text-emerald-900" },
-                { value: "Delayed", label: "🔴 Delayed", activeColor: "bg-red-100 border-red-400 text-red-900" },
-                { value: "Completed", label: "✅ Completed", activeColor: "bg-teal-100 border-teal-400 text-teal-900" },
-                { value: "Paused", label: "⏸️ Paused", activeColor: "bg-purple-100 border-purple-400 text-purple-900" },
-              ].map((sc) => (
-                <button
-                  key={sc.value}
-                  type="button"
-                  onClick={() => setForm(p => ({ ...p, work_status: sc.value }))}
-                  className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
-                    form.work_status === sc.value
-                      ? `${sc.activeColor} shadow-xs scale-102`
-                      : "bg-white border-border text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  {sc.label}
-                </button>
-              ))}
-            </div>
-          </div>
+      <div>
+        <label className="text-xs font-semibold text-gray-700 block mb-1.5">Work Status</label>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { value: "In Progress", label: "⏳ In Progress", activeColor: "bg-blue-100 border-blue-400 text-blue-900" },
+            { value: "On Track", label: "🟢 On Track", activeColor: "bg-emerald-100 border-emerald-400 text-emerald-900" },
+            { value: "Delayed", label: "🔴 Delayed", activeColor: "bg-red-100 border-red-400 text-red-900" },
+            { value: "Completed", label: "✅ Completed", activeColor: "bg-teal-100 border-teal-400 text-teal-900" },
+            { value: "Paused", label: "⏸️ Paused", activeColor: "bg-purple-100 border-purple-400 text-purple-900" },
+          ].map((sc) => (
+            <button
+              key={sc.value}
+              type="button"
+              onClick={() => setForm(p => ({ ...p, work_status: sc.value }))}
+              className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
+                form.work_status === sc.value
+                  ? `${sc.activeColor} shadow-xs scale-102`
+                  : "bg-white border-border text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {sc.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">Phase</label>
-            <select value={form.phase_id} onChange={(e) => { setForm((p) => ({ ...p, phase_id: e.target.value, deliverable_name: "" })); setNewDeliverable(""); }} className="w-full h-11 border border-border rounded-xl px-3 text-sm bg-white focus:outline-none focus:border-gray-400">
-              <option value="">No phase selected</option>
-              {phases.map((ph) => <option key={ph.id} value={ph.id}>{ph.name}</option>)}
-            </select>
-          </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-semibold text-gray-700 block mb-1">Phase *</label>
+          <select
+            value={form.phase_id}
+            onChange={(e) => setForm((p) => ({ ...p, phase_id: e.target.value, deliverable_name: "" }))}
+            className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-950 font-semibold focus:border-gray-500 focus:outline-none"
+          >
+            <option value="">Select phase...</option>
+            {phases.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          {form.phase_id && (
-            <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">Deliverable</label>
-              <select
-                value={newDeliverable ? "__new__" : form.deliverable_name}
-                onChange={(e) => {
-                  if (e.target.value === "__new__") { setNewDeliverable(" "); setForm((p) => ({ ...p, deliverable_name: "" })); }
-                  else { setNewDeliverable(""); setForm((p) => ({ ...p, deliverable_name: e.target.value })); }
-                }}
-                className="w-full h-11 border border-border rounded-xl px-3 text-sm bg-white focus:outline-none focus:border-gray-400"
-              >
-                <option value="">No deliverable selected</option>
-                {deliverableOptions.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
-                <option value="__new__">+ Add new deliverable...</option>
-              </select>
-              {newDeliverable !== "" && (
-                <input type="text" value={newDeliverable.trim()} onChange={(e) => { setNewDeliverable(e.target.value); setForm((p) => ({ ...p, deliverable_name: e.target.value })); }} className="w-full h-10 border border-border rounded-xl px-3 text-sm mt-2 focus:outline-none focus:border-gray-400" placeholder="Enter new deliverable name..." />
-              )}
-            </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-700 block mb-1">Deliverable *</label>
+          <select
+            value={form.deliverable_name === "" ? "" : deliverableOptions.some((d) => d.name === form.deliverable_name) ? form.deliverable_name : "__new__"}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === "__new__") {
+                setNewDeliverable(" ");
+                setForm((p) => ({ ...p, deliverable_name: "" }));
+              } else {
+                setNewDeliverable("");
+                setForm((p) => ({ ...p, deliverable_name: val }));
+              }
+            }}
+            disabled={!form.phase_id}
+            className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-955 font-semibold focus:border-gray-500 focus:outline-none disabled:opacity-40"
+          >
+            <option value="">Select deliverable...</option>
+            {deliverableOptions.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
+            <option value="__new__">+ Add new deliverable...</option>
+          </select>
+          {newDeliverable !== "" && (
+            <input
+              type="text"
+              value={newDeliverable.trim()}
+              onChange={(e) => { setNewDeliverable(e.target.value); setForm((p) => ({ ...p, deliverable_name: e.target.value })); }}
+              className="w-full h-10 border border-border rounded-xl px-3 text-xs mt-2 focus:outline-none focus:border-gray-400 bg-white"
+              placeholder="Enter new deliverable name..."
+            />
           )}
-
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">Work Description *</label>
-            <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="w-full border border-border rounded-xl px-3.5 py-3 text-xs resize-none focus:outline-none focus:border-gray-400" rows={3} placeholder="Describe what progress was achieved today..." />
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1.5">Weather Condition</label>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { value: "Sunny", label: "☀️ Sunny", activeColor: "bg-amber-50 border-amber-300 text-amber-800" },
-                { value: "Cloudy", label: "☁️ Cloudy", activeColor: "bg-blue-50 border-blue-200 text-blue-700" },
-                { value: "Rainy", label: "🌧️ Rainy", activeColor: "bg-indigo-50 border-indigo-300 text-indigo-700" },
-                { value: "Overcast", label: "🌫️ Overcast", activeColor: "bg-slate-100 border-slate-300 text-slate-700" },
-                { value: "Hot", label: "🥵 Hot", activeColor: "bg-red-50 border-red-300 text-red-800" },
-              ].map((wc) => (
-                <button
-                  key={wc.value}
-                  type="button"
-                  onClick={() => setForm(p => ({ ...p, weather: wc.value }))}
-                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
-                    form.weather === wc.value
-                      ? `${wc.activeColor} shadow-xs scale-102`
-                      : "bg-white border-border text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  {wc.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">Issues (optional)</label>
-            <textarea value={form.issues} onChange={(e) => setForm((p) => ({ ...p, issues: e.target.value }))} className="w-full border border-border rounded-xl px-3.5 py-2.5 text-xs resize-none focus:outline-none focus:border-gray-400" rows={2} placeholder="Any issues or blockers encountered..." />
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">Progress Photos</label>
-            <label className="flex items-center gap-3 w-full h-12 border-2 border-dashed border-sky-200 bg-sky-50/10 hover:bg-sky-50/30 rounded-xl px-3.5 cursor-pointer hover:border-sky-400 transition-colors">
-              <Upload className="h-4 w-4 text-sky-600 flex-shrink-0" />
-              <span className="text-xs text-sky-700 font-semibold truncate">
-                {photoFiles.length > 0 ? `${photoFiles.length} photo${photoFiles.length !== 1 ? "s" : ""} selected` : "Tap to add site photos..."}
-              </span>
-              <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => setPhotoFiles(Array.from(e.target.files ?? []))} />
-            </label>
-          </div>
-
-          <div className="flex gap-3">
-            <button onClick={onClose} className="flex-1 h-12 border border-border text-gray-900 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors">
-              Cancel
-            </button>
-            <button onClick={handleSave} disabled={saving || !form.phase_id || !form.deliverable_name || !form.description} className="flex-1 h-12 bg-gray-950 hover:bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-40 flex items-center justify-center gap-2 transition-colors">
-              {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Save Log"}
-            </button>
-          </div>
         </div>
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold text-gray-700 block mb-1">Work Description *</label>
+        <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="w-full border border-border rounded-xl px-3.5 py-3 text-xs resize-none focus:outline-none focus:border-gray-400 bg-white text-gray-900 font-medium" rows={3} placeholder="Describe what progress was achieved today..." />
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold text-gray-700 block mb-1">Issues (optional)</label>
+        <textarea value={form.issues} onChange={(e) => setForm((p) => ({ ...p, issues: e.target.value }))} className="w-full border border-border rounded-xl px-3.5 py-2.5 text-xs resize-none focus:outline-none focus:border-gray-400 bg-white" rows={2} placeholder="Any issues or blockers encountered..." />
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold text-gray-700 block mb-1">Progress Photos</label>
+        <label className="flex items-center gap-3 w-full h-12 border-2 border-dashed border-sky-200 bg-sky-50/10 hover:bg-sky-50/30 rounded-xl px-3.5 cursor-pointer hover:border-sky-400 transition-colors">
+          <Upload className="h-4 w-4 text-sky-600 flex-shrink-0" />
+          <span className="text-xs text-sky-700 font-semibold truncate">
+            {photoFiles.length > 0 ? `${photoFiles.length} photo${photoFiles.length !== 1 ? "s" : ""} selected` : "Tap to add site photos..."}
+          </span>
+          <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => setPhotoFiles(Array.from(e.target.files ?? []))} />
+        </label>
+      </div>
+
+      <div className="flex gap-3">
+        <button onClick={onClose} className="flex-1 h-12 border border-border text-gray-900 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors">
+          Cancel
+        </button>
+        <button onClick={handleSave} disabled={saving || !form.phase_id || !form.deliverable_name || !form.description} className="flex-1 h-12 bg-gray-950 hover:bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-40 flex items-center justify-center gap-2 transition-colors">
+          {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Save Log"}
+        </button>
       </div>
     </div>
   );
@@ -274,71 +266,68 @@ function QuickFundsForm({ onClose, onSaved }: { onClose: () => void; onSaved: ()
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white w-full sm:max-w-lg rounded-2xl max-h-[80vh] overflow-y-auto shadow-2xl">
-        <div className="p-4 border-b border-border sticky top-0 bg-white rounded-t-2xl flex items-center justify-between">
-          <h2 className="font-bold text-gray-900">Add Funds</h2>
-          <button onClick={onClose} className="p-2 text-muted-foreground"><X className="h-4 w-4" /></button>
+    <div className="space-y-4">
+      <div className="pb-3 border-b border-border flex items-center justify-between">
+        <h2 className="font-bold text-gray-900 text-lg">Add Funds</h2>
+        <button onClick={onClose} className="p-2 text-muted-foreground hover:bg-gray-100 rounded-full transition-colors"><X className="h-4 w-4" /></button>
+      </div>
+
+      {error && <p className="text-sm font-semibold text-red-600 bg-red-50 rounded-xl p-3 border border-red-200">{error}</p>}
+      <div>
+        <label className="text-xs font-semibold text-gray-700 block mb-1">Source *</label>
+        <input
+          type="text"
+          value={form.source}
+          onChange={(e) => setForm((p) => ({ ...p, source: e.target.value }))}
+          className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-900 font-semibold focus:border-gray-500 focus:outline-none"
+          placeholder="e.g. Personal savings, Bank loan, Partner capital..."
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-semibold text-gray-700 block mb-1">Amount (₹) *</label>
+          <input
+            type="number"
+            value={form.amount}
+            onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
+            className="w-full h-11 border border-border rounded-xl px-3 text-xs font-sans font-bold bg-white text-gray-900 focus:border-gray-500 focus:outline-none"
+            placeholder="0"
+          />
         </div>
-        <div className="p-4 space-y-4">
-          {error && <p className="text-sm font-semibold text-red-600 bg-red-50 rounded-xl p-3 border border-red-200">{error}</p>}
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">Source *</label>
-            <input
-              type="text"
-              value={form.source}
-              onChange={(e) => setForm((p) => ({ ...p, source: e.target.value }))}
-              className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-900 font-semibold focus:border-gray-500 focus:outline-none"
-              placeholder="e.g. Personal savings, Bank loan, Partner capital..."
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">Amount (₹) *</label>
-              <input
-                type="number"
-                value={form.amount}
-                onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
-                className="w-full h-11 border border-border rounded-xl px-3 text-xs font-sans font-bold bg-white text-gray-900 focus:border-gray-500 focus:outline-none"
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">Date Received</label>
-              <input
-                type="date"
-                value={form.date_received}
-                onChange={(e) => setForm((p) => ({ ...p, date_received: e.target.value }))}
-                className="w-full h-11 border border-border rounded-xl px-3 text-xs font-sans font-semibold bg-white text-gray-900 focus:border-gray-500 focus:outline-none"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">Notes</label>
-            <textarea
-              value={form.notes}
-              onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-              className="w-full border border-border rounded-xl px-3.5 py-2.5 text-xs resize-none focus:border-gray-500 focus:outline-none"
-              rows={2}
-              placeholder="Any details about the source, transaction ID, reference..."
-            />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button
-              onClick={onClose}
-              className="flex-1 h-11 border border-border text-gray-900 rounded-xl font-bold text-xs hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex-1 h-11 bg-gray-950 hover:bg-gray-900 text-white rounded-xl font-bold text-xs disabled:opacity-40 flex items-center justify-center gap-1.5 transition-colors"
-            >
-              {saving ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...</> : "Save Funds"}
-            </button>
-          </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-700 block mb-1">Date Received</label>
+          <input
+            type="date"
+            value={form.date_received}
+            onChange={(e) => setForm((p) => ({ ...p, date_received: e.target.value }))}
+            className="w-full h-11 border border-border rounded-xl px-3 text-xs font-sans font-semibold bg-white text-gray-900 focus:border-gray-500 focus:outline-none"
+          />
         </div>
+      </div>
+      <div>
+        <label className="text-xs font-semibold text-gray-700 block mb-1">Notes</label>
+        <textarea
+          value={form.notes}
+          onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+          className="w-full border border-border rounded-xl px-3.5 py-2.5 text-xs resize-none focus:border-gray-500 focus:outline-none"
+          rows={2}
+          placeholder="Any details about the source, transaction ID, reference..."
+        />
+      </div>
+      <div className="flex gap-3 pt-2">
+        <button
+          onClick={onClose}
+          className="flex-1 h-12 border border-border text-gray-900 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex-1 h-12 bg-gray-950 hover:bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-40 flex items-center justify-center gap-2 transition-colors"
+        >
+          {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Save Funds"}
+        </button>
       </div>
     </div>
   );
@@ -450,76 +439,73 @@ function QuickReminderForm({ onClose, onSaved, initialType = "reminder" }: { onC
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white w-full sm:max-w-lg rounded-2xl max-h-[80vh] overflow-y-auto shadow-2xl">
-        <div className="p-4 border-b border-border sticky top-0 bg-white rounded-t-2xl flex items-center justify-between">
-          <h2 className="font-bold text-gray-900">{type === "wish" ? "Quick Wish / Pending" : "Quick Reminder"}</h2>
-          <button onClick={onClose} className="p-2 text-muted-foreground"><X className="h-4 w-4" /></button>
+    <div className="space-y-4">
+      <div className="pb-3 border-b border-border flex items-center justify-between">
+        <h2 className="font-bold text-gray-900 text-lg">{type === "wish" ? "Quick Wish / Pending" : "Quick Reminder"}</h2>
+        <button onClick={onClose} className="p-2 text-muted-foreground hover:bg-gray-100 rounded-full transition-colors"><X className="h-4 w-4" /></button>
+      </div>
+
+      {error && <p className="text-sm font-semibold text-red-600 bg-red-50 rounded-xl p-3 border border-red-200">{error}</p>}
+
+      {/* Phase Selector (Only for Wish List) */}
+      {type === "wish" && (
+        <div>
+          <label className="text-xs font-semibold text-gray-700 block mb-1">Phase (optional)</label>
+          <select
+            value={form.phase_id}
+            onChange={(e) => setForm((p) => ({ ...p, phase_id: e.target.value }))}
+            className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-955 font-semibold focus:border-gray-500 focus:outline-none"
+          >
+            <option value="">No phase selected</option>
+            {phases.map((ph) => (
+              <option key={ph.id} value={ph.id}>
+                {ph.name}
+              </option>
+            ))}
+          </select>
         </div>
-        <div className="p-4 space-y-4">
-          {error && <p className="text-sm font-semibold text-red-600 bg-red-50 rounded-xl p-3 border border-red-200">{error}</p>}
+      )}
 
-          {/* Phase Selector (Only for Wish List) */}
-          {type === "wish" && (
-            <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">Phase (optional)</label>
-              <select
-                value={form.phase_id}
-                onChange={(e) => setForm((p) => ({ ...p, phase_id: e.target.value }))}
-                className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-955 font-semibold focus:border-gray-500 focus:outline-none"
-              >
-                <option value="">No phase selected</option>
-                {phases.map((ph) => (
-                  <option key={ph.id} value={ph.id}>
-                    {ph.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+      <div>
+        <label className="text-xs font-semibold text-gray-700 block mb-1">
+          {type === "wish" ? "What is your wish / pending work? *" : "Reminder / Task *"}
+        </label>
+        <textarea
+          value={form.text}
+          onChange={(e) => setForm((p) => ({ ...p, text: e.target.value }))}
+          className="w-full border border-border rounded-xl px-3.5 py-2.5 text-xs resize-none focus:border-gray-500 focus:outline-none bg-white text-gray-900 font-medium"
+          rows={3}
+          placeholder={type === "wish" ? "e.g. Build modular barbecue deck in lawn..." : "e.g. Call Ravi about steel delivery..."}
+          autoFocus
+        />
+      </div>
 
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">
-              {type === "wish" ? "What is your wish / pending work? *" : "Reminder / Task *"}
-            </label>
-            <textarea
-              value={form.text}
-              onChange={(e) => setForm((p) => ({ ...p, text: e.target.value }))}
-              className="w-full border border-border rounded-xl px-3.5 py-2.5 text-xs resize-none focus:border-gray-500 focus:outline-none bg-white text-gray-900 font-medium"
-              rows={3}
-              placeholder={type === "wish" ? "e.g. Build modular barbecue deck in lawn..." : "e.g. Call Ravi about steel delivery..."}
-              autoFocus
-            />
-          </div>
+      <div>
+        <label className="text-xs font-semibold text-gray-700 block mb-1">
+          {type === "wish" ? "Target Date (optional)" : "Due Date (optional)"}
+        </label>
+        <input
+          type="date"
+          value={form.due_date}
+          onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))}
+          className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-900 font-semibold focus:border-gray-500 focus:outline-none"
+        />
+      </div>
 
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">
-              {type === "wish" ? "Target Date (optional)" : "Due Date (optional)"}
-            </label>
-            <input
-              type="date"
-              value={form.due_date}
-              onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))}
-              className="w-full h-11 border border-border rounded-xl px-3 text-xs font-sans font-semibold bg-white text-gray-900 focus:border-gray-500 focus:outline-none"
-            />
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <button
-              onClick={onClose}
-              className="flex-1 h-11 border border-border text-gray-900 rounded-xl font-bold text-xs hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving || !form.text}
-              className="flex-1 h-11 bg-gray-950 hover:bg-gray-900 text-white rounded-xl font-bold text-xs disabled:opacity-40 flex items-center justify-center gap-1.5 transition-colors"
-            >
-              {saving ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...</> : "Save"}
-            </button>
-          </div>
-        </div>
+      <div className="flex gap-3 pt-2">
+        <button
+          onClick={onClose}
+          className="flex-1 h-12 border border-border text-gray-900 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={saving || !form.text}
+          className="flex-1 h-12 bg-gray-950 hover:bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-40 flex items-center justify-center gap-2 transition-colors"
+        >
+          {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Save"}
+        </button>
       </div>
     </div>
   );
@@ -543,7 +529,7 @@ export function QuickAddModal() {
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-[50%] top-[50%] z-50 grid w-[90%] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg sm:rounded-xl rounded-2xl">
+        <Dialog.Content className="fixed bottom-0 sm:bottom-auto left-0 right-0 sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] z-50 flex flex-col w-full sm:w-[90%] max-w-lg gap-4 border bg-background p-5 shadow-lg sm:rounded-xl rounded-t-2xl rounded-b-none sm:rounded-b-xl max-h-[92vh] overflow-y-auto pb-safe">
           {/* Menu Screen */}
           {screen === "menu" && (
             <>

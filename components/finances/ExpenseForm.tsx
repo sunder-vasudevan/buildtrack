@@ -176,10 +176,12 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
       const finalNotes = [originalCleanNotes, cleanNotesInput, form.worker_name ? `Worker: ${form.worker_name}` : "", receiptUrl ? `Receipt: ${receiptUrl}` : ""].filter(Boolean).join(" | ");
       const notesWithPrefix = [deliverablePrefix, finalNotes].filter(Boolean).join(" ");
 
-      // Update existing budget item's actual cost
+      // Update existing budget item
       await supabase
         .from("budget_items")
         .update({
+          item_name: form.item_name,
+          category: form.category,
           actual_cost: Number(form.amount),
           status: "Paid",
           payment_date: form.date,
