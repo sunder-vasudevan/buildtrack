@@ -88,7 +88,7 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
     filteredBudgetItems.forEach((item) => {
       let cat = item.category || "Other";
       if (cat === "Vendor Quotes" || cat === "Additional Items") {
-        cat = "Vendor Quotes & Additional Items";
+        cat = "Estimates";
       }
       if (cat === "Other" || cat === "Others") {
         cat = "Misc/Unplanned";

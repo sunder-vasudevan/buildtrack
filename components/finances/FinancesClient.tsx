@@ -59,7 +59,7 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
     const res = filteredItems.reduce<Record<string, BudgetItem[]>>((acc, item) => {
       let cat = item.category || "Other";
       if (cat === "Vendor Quotes" || cat === "Additional Items") {
-        cat = "Vendor Quotes & Additional Items";
+        cat = "Estimates";
       }
       if (cat === "Other" || cat === "Others") {
         cat = "Misc/Unplanned";
@@ -71,9 +71,9 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
       return acc;
     }, {});
 
-    // For "Vendor Quotes & Additional Items", sort phase-wise:
-    if (res["Vendor Quotes & Additional Items"]) {
-      res["Vendor Quotes & Additional Items"].sort((a, b) => {
+    // For "Estimates", sort phase-wise:
+    if (res["Estimates"]) {
+      res["Estimates"].sort((a, b) => {
         const indexA = phases.findIndex((p) => p.id === a.phase_id);
         const indexB = phases.findIndex((p) => p.id === b.phase_id);
         

@@ -155,7 +155,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     items.forEach((item) => {
       let cat = item.category || "Misc/Unplanned";
       if (cat === "Vendor Quotes" || cat === "Additional Items") {
-        cat = "Vendor Quotes & Additional Items";
+        cat = "Estimates";
       }
       if (cat === "Other" || cat === "Others") {
         cat = "Misc/Unplanned";
