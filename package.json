@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "audit": "npm audit"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
