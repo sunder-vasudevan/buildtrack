@@ -7,6 +7,7 @@ import { formatINR, formatDate, daysLeft } from "@/lib/utils";
 import { Building2, Download, Loader2, Settings, ChevronDown, ChevronUp, Grid, FileText, PenSquare, Trash2, Search, Plus, BookOpen } from "lucide-react";
 import { WindowsClient } from "@/components/tracker/WindowsTab";
 import { PlansTab } from "@/components/tracker/PlansTab";
+import { AttachmentsBackup } from "@/components/more/AttachmentsBackup";
 
 type ExportKey = "expenses" | "funds" | "status" | "logs";
 
@@ -468,7 +469,7 @@ export function ProjectInfoTab({
             <div>
               <p className="font-bold text-sm text-gray-900">Settings & Export</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Download project database tables as CSV or Excel
+                Export data tables and download or back up attachments
               </p>
             </div>
           </div>
@@ -476,7 +477,18 @@ export function ProjectInfoTab({
         </button>
 
         {settingsExpanded && (
-          <div className="border-t border-border bg-gray-50/30 p-4 space-y-3">
+          <div className="border-t border-border bg-gray-50/30 p-4 space-y-5">
+
+            {/* Attachments: Download ZIP / Backup to Drive */}
+            <div>
+              <p className="text-xs font-bold text-gray-700 mb-3">Attachments & Backup</p>
+              <AttachmentsBackup />
+            </div>
+
+            <div className="border-t border-border/60 pt-4">
+              <p className="text-xs font-bold text-gray-700 mb-3">Export Data Tables</p>
+            </div>
+
             <div className="flex items-center gap-2">
               <button
                 onClick={() => fetchAndExportAll("csv")}

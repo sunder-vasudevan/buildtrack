@@ -2,8 +2,8 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { BudgetItem, Income } from "@/lib/types";
-import { formatINR, formatDate, parseDeliverableFromNotes, cleanDeliverableNotes, parseQuoteRefFromNotes, cleanQuoteRefNotes } from "@/lib/utils";
-import { ChevronDown, ChevronUp, PencilLine, Download, Plus, Landmark, X, Loader2, Wallet, Trash2, Search } from "lucide-react";
+import { formatINR, formatDate, parseDeliverableFromNotes, cleanDeliverableNotes, parseQuoteRefFromNotes, cleanQuoteRefNotes, parseReceiptFromNotes, cleanReceiptFromNotes } from "@/lib/utils";
+import { ChevronDown, ChevronUp, PencilLine, Download, Plus, Landmark, X, Loader2, Wallet, Trash2, Search, Paperclip } from "lucide-react";
 import { ExpenseForm } from "@/components/finances/ExpenseForm";
 import { supabase } from "@/lib/supabase";
 
@@ -39,7 +39,20 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
     notes: "",
   });
 
-  const spent = useMemo(() => items.reduce((s, i) => s + (i.actual_cost ?? 0), 0), [items]);
+  const spent = useMemo(() => {
+    // Build sets to avoid double-counting: parents with children should not
+    // also count their own legacy actual_cost (children are counted separately)
+    const parentIdsWithChildren = new Set(
+      items
+        .map((i) => parseQuoteRefFromNotes(i.notes))
+        .filter(Boolean) as string[]
+    );
+    return items.reduce((s, item) => {
+      // Skip the parent's own actual_cost when it has child expenses
+      if (!parseQuoteRefFromNotes(item.notes) && parentIdsWithChildren.has(item.id)) return s;
+      return s + (item.actual_cost ?? 0);
+    }, 0);
+  }, [items]);
   const totalFunds = useMemo(() => incomes.reduce((s, i) => s + i.amount, 0), [incomes]);
   const cashBalance = totalFunds - spent;
   const remainingBudget = totalBudget - spent;
@@ -576,10 +589,13 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
                     const catQuoted = catItems.reduce((s, i) => s + (i.quoted_cost ?? 0), 0);
                   const isOpen = budgetExpandedCat === cat || searchQueryLower !== "";
 
-                  // Compute total paid for category including children
+                  // Compute total paid for category: use children's sum when they exist,
+                  // otherwise fall back to the item's own legacy actual_cost (never both)
                   const catActualWithChildren = catItems.reduce((s, i) => {
-                    const childrenSum = (childExpenseMap[i.id] || []).reduce((cs, c) => cs + (c.actual_cost ?? 0), 0);
-                    return s + (i.actual_cost ?? 0) + childrenSum;
+                    const itemChildren = childExpenseMap[i.id] || [];
+                    const childrenSum = itemChildren.reduce((cs, c) => cs + (c.actual_cost ?? 0), 0);
+                    const itemActual = itemChildren.length === 0 ? (i.actual_cost ?? 0) : 0;
+                    return s + itemActual + childrenSum;
                   }, 0);
 
                   return (
@@ -606,7 +622,8 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
                             const variance = totalPaid - (item.quoted_cost ?? 0);
                             const linkedPhase = phases.find((p) => p.id === item.phase_id);
                             const linkedDel = parseDeliverableFromNotes(item.notes);
-                            const cleanNotes = cleanDeliverableNotes(item.notes);
+                            const receiptUrl = parseReceiptFromNotes(item.notes);
+                            const cleanNotes = cleanReceiptFromNotes(cleanDeliverableNotes(item.notes));
                             const isQuote = !!item.quoted_cost;
                             const isCustomExpense = !item.quoted_cost;
 
@@ -670,7 +687,19 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
                                         {children.length} payment{children.length > 1 ? "s" : ""}
                                       </span>
                                     )}
-                                    {isCustomExpense && (
+                                    {receiptUrl && (
+                                      <a
+                                        href={receiptUrl}
+                                        download
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-1.5 rounded-lg border border-sky-100 bg-sky-50 hover:bg-sky-100 text-sky-600 transition-colors active:scale-95"
+                                        title="Download receipt"
+                                      >
+                                        <Paperclip className="h-3.5 w-3.5" />
+                                      </a>
+                                    )}
+                                    {(isCustomExpense || (isQuote && item.actual_cost !== null && children.length === 0)) && (
                                       <button
                                         onClick={() => setEditingItem(item)}
                                         className="p-1.5 rounded-lg border border-border bg-white hover:bg-gray-50 text-gray-500 transition-colors active:scale-95"
@@ -719,7 +748,8 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
                                 {children.length > 0 && (
                                   <div className="mt-1 space-y-1.5 pl-1 border-l-2 border-blue-100">
                                     {children.map((child) => {
-                                      const childNotes = cleanQuoteRefNotes(cleanDeliverableNotes(child.notes));
+                                      const childReceiptUrl = parseReceiptFromNotes(child.notes);
+                                      const childNotes = cleanReceiptFromNotes(cleanQuoteRefNotes(cleanDeliverableNotes(child.notes)));
                                       return (
                                         <div key={child.id} className="flex items-center justify-between gap-2 py-1.5 px-2 bg-gray-50/60 rounded-lg">
                                           <div className="flex-1 min-w-0">
@@ -733,6 +763,18 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
                                             <span className="text-[11px] font-extrabold text-gray-900 font-sans">
                                               {formatINR(child.actual_cost)}
                                             </span>
+                                            {childReceiptUrl && (
+                                              <a
+                                                href={childReceiptUrl}
+                                                download
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-1 rounded border border-sky-100 bg-sky-50 hover:bg-sky-100 text-sky-600 transition-colors active:scale-95"
+                                                title="Download receipt"
+                                              >
+                                                <Paperclip className="h-3 w-3" />
+                                              </a>
+                                            )}
                                             <button
                                               onClick={() => setEditingItem(child)}
                                               className="p-1 rounded border border-border bg-white hover:bg-gray-50 text-gray-400 transition-colors active:scale-95"

@@ -101,3 +101,14 @@ export function cleanQuoteRefNotes(notes: string | null | undefined): string {
   if (!notes) return "";
   return notes.replace(/\s*\[QuoteRef:[^\]]+\]\s*/gi, " ").trim();
 }
+
+export function parseReceiptFromNotes(notes: string | null | undefined): string | null {
+  if (!notes) return null;
+  const match = notes.match(/Receipt:\s*(https?:\/\/\S+)/i);
+  return match ? match[1] : null;
+}
+
+export function cleanReceiptFromNotes(notes: string | null | undefined): string {
+  if (!notes) return "";
+  return notes.replace(/\s*Receipt:\s*https?:\/\/\S+/gi, "").trim().replace(/\s*\|\s*$/, "").trim();
+}
