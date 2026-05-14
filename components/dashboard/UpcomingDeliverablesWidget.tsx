@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { Phase } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
-import { CalendarRange, ChevronDown, ChevronUp, AlertTriangle, CalendarDays } from "lucide-react";
+import { CalendarRange, ChevronDown, AlertTriangle } from "lucide-react";
 
 export function UpcomingDeliverablesWidget({ phases }: { phases: Phase[] }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -13,6 +13,18 @@ export function UpcomingDeliverablesWidget({ phases }: { phases: Phase[] }) {
     d.setHours(0, 0, 0, 0);
     return d;
   }, []);
+
+  const todayStr = today.toISOString().split("T")[0];
+
+  // Default "to" = 30 days from today
+  const defaultTo = useMemo(() => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().split("T")[0];
+  }, [today]);
+
+  const [filterFrom, setFilterFrom] = useState(todayStr);
+  const [filterTo, setFilterTo] = useState(defaultTo);
 
   const upcomingDeliverables = useMemo(() => {
     const list: Array<{
@@ -24,6 +36,8 @@ export function UpcomingDeliverablesWidget({ phases }: { phases: Phase[] }) {
     }> = [];
 
     const todayMs = today.getTime();
+    const fromMs = filterFrom ? new Date(filterFrom).setHours(0, 0, 0, 0) : -Infinity;
+    const toMs = filterTo ? new Date(filterTo).setHours(23, 59, 59, 999) : Infinity;
 
     phases.forEach((phase) => {
       if (phase.deliverables && Array.isArray(phase.deliverables)) {
@@ -32,11 +46,9 @@ export function UpcomingDeliverablesWidget({ phases }: { phases: Phase[] }) {
           if (del.planned_due && !del.actual_due) {
             const dueDate = new Date(del.planned_due);
             dueDate.setHours(0, 0, 0, 0);
-            const diffTime = dueDate.getTime() - todayMs;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-            // Show items due in 7 days or already overdue (to prevent missed items!)
-            if (diffDays <= 7) {
+            const dueDateMs = dueDate.getTime();
+            if (dueDateMs >= fromMs && dueDateMs <= toMs) {
+              const diffDays = Math.ceil((dueDateMs - todayMs) / (1000 * 60 * 60 * 24));
               list.push({
                 phaseId: phase.id,
                 phaseName: phase.name,
@@ -51,7 +63,7 @@ export function UpcomingDeliverablesWidget({ phases }: { phases: Phase[] }) {
     });
 
     return list.sort((a, b) => a.daysLeft - b.daysLeft);
-  }, [phases, today]);
+  }, [phases, today, filterFrom, filterTo]);
 
   const totalCount = upcomingDeliverables.length;
 
@@ -64,7 +76,7 @@ export function UpcomingDeliverablesWidget({ phases }: { phases: Phase[] }) {
         <div className="flex items-center gap-2.5">
           <CalendarRange className="h-5 w-5 text-gray-500 shrink-0" />
           <div>
-            <h2 className="font-semibold text-sm text-gray-900 text-left">Upcoming Milestones (7 Days)</h2>
+            <h2 className="font-semibold text-sm text-gray-900 text-left">Upcoming Milestones</h2>
           </div>
           {totalCount > 0 && (
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
@@ -81,6 +93,28 @@ export function UpcomingDeliverablesWidget({ phases }: { phases: Phase[] }) {
 
       {isExpanded && (
         <div className="p-4 pt-0 border-t border-border/60 space-y-3 bg-gray-50/10">
+          {/* Date range filter */}
+          <div className="grid grid-cols-2 gap-2 pt-3">
+            <div>
+              <p className="text-[10px] text-muted-foreground mb-1">From</p>
+              <input
+                type="date"
+                value={filterFrom}
+                onChange={(e) => setFilterFrom(e.target.value)}
+                className="w-full h-8 border border-border rounded-lg px-2 text-xs bg-white"
+              />
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground mb-1">To</p>
+              <input
+                type="date"
+                value={filterTo}
+                onChange={(e) => setFilterTo(e.target.value)}
+                className="w-full h-8 border border-border rounded-lg px-2 text-xs bg-white"
+              />
+            </div>
+          </div>
+
           {totalCount === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 text-center space-y-1 mt-3">
               <p className="text-sm font-medium text-gray-950">No upcoming milestones 🎉</p>
