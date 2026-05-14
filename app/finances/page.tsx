@@ -39,7 +39,7 @@ export default async function FinancesPage() {
 
       {/* Footer */}
       <div className="pt-8 pb-16 text-center shrink-0">
-        <p className="text-xs text-muted-foreground">v1.3.5 · 12 May 2026 · Built in Hyderabad with ❤️</p>
+        <p className="text-xs text-muted-foreground">v1.4.4 · 14 May 2026 · Built in Hyderabad with ❤️</p>
       </div>
     </div>
   );
