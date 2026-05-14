@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Phase, PhaseStatus } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
-import { ChevronDown, ChevronUp, CheckCircle2, Circle, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, CheckCircle2, Circle, Upload, Image as ImageIcon, Loader2, AlertCircle } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
   "Not Started": "bg-gray-100 text-gray-600",
@@ -21,6 +21,7 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
   const [editing, setEditing] = useState<Partial<Phase>>({});
   const [deliverableEdits, setDeliverableEdits] = useState<Record<number, { planned_start?: string; actual_due?: string }>>({});
   const [saving, setSaving] = useState(false);
+  const [saveResult, setSaveResult] = useState<{ id: string; ok: boolean; msg?: string } | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
   const [photos, setPhotos] = useState<Record<string, string>>({});
 
@@ -52,39 +53,50 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
 
   async function savePhase(id: string) {
     setSaving(true);
-    // Merge deliverable actual_due edits
-    const updatedDeliverables = (editing.deliverables ?? []).map((item, i) => {
-      const d = typeof item === "string" ? { name: item, planned_start: null, planned_due: null, actual_due: null } : item;
-      const edits = deliverableEdits[i];
-      if (!edits) return d;
-      return {
-        ...d,
-        ...(edits.planned_start !== undefined ? { planned_start: edits.planned_start || null } : {}),
-        ...(edits.actual_due !== undefined ? { actual_due: edits.actual_due || null } : {}),
+    setSaveResult(null);
+    try {
+      const updatedDeliverables = (editing.deliverables ?? []).map((item, i) => {
+        const d = typeof item === "string" ? { name: item, planned_start: null, planned_due: null, actual_due: null } : item;
+        const edits = deliverableEdits[i];
+        if (!edits) return d;
+        return {
+          ...d,
+          ...(edits.planned_start !== undefined ? { planned_start: edits.planned_start || null } : {}),
+          ...(edits.actual_due !== undefined ? { actual_due: edits.actual_due || null } : {}),
+        };
+      });
+      const plannedStarts = updatedDeliverables.map((d) => d.planned_start).filter(Boolean) as string[];
+      const plannedDues = updatedDeliverables.map((d) => d.planned_due).filter(Boolean) as string[];
+      const derivedActualStart = plannedStarts.length > 0 ? plannedStarts.sort()[0] : editing.actual_start_date ?? null;
+      const derivedActualEnd = plannedDues.length > 0 ? plannedDues.sort().at(-1)! : editing.actual_end_date ?? null;
+      const payload = {
+        status: editing.status,
+        notes: editing.notes ?? null,
+        deliverables: updatedDeliverables,
+        actual_start_date: derivedActualStart,
+        actual_end_date: derivedActualEnd,
       };
-    });
-    // Derive actual_start_date from earliest planned_start, actual_end_date from latest planned_due
-    const plannedStarts = updatedDeliverables.map((d) => d.planned_start).filter(Boolean) as string[];
-    const plannedDues = updatedDeliverables.map((d) => d.planned_due).filter(Boolean) as string[];
-    const derivedActualStart = plannedStarts.length > 0 ? plannedStarts.sort()[0] : editing.actual_start_date ?? null;
-    const derivedActualEnd = plannedDues.length > 0 ? plannedDues.sort().at(-1)! : editing.actual_end_date ?? null;
-    const payload = {
-      ...editing,
-      deliverables: updatedDeliverables,
-      actual_start_date: derivedActualStart,
-      actual_end_date: derivedActualEnd,
-    };
-    const { data, error } = await supabase
-      .from("phases")
-      .update(payload)
-      .eq("id", id)
-      .select()
-      .single();
-    if (!error && data) {
-      setPhases((prev) => prev.map((p) => (p.id === id ? (data as Phase) : p)));
-      setDeliverableEdits({});
+      const { data, error } = await supabase
+        .from("phases")
+        .update(payload)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) {
+        console.error("Save phase error:", error);
+        setSaveResult({ id, ok: false, msg: error.message });
+      } else if (data) {
+        setPhases((prev) => prev.map((p) => (p.id === id ? (data as Phase) : p)));
+        setDeliverableEdits({});
+        setSaveResult({ id, ok: true });
+        setTimeout(() => setSaveResult(null), 2500);
+      }
+    } catch (err) {
+      console.error("Save phase exception:", err);
+      setSaveResult({ id, ok: false, msg: "Unexpected error. Please try again." });
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -301,12 +313,25 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
                     />
                   </div>
 
+                  {saveResult?.id === phase.id && !saveResult.ok && (
+                    <div className="flex items-start gap-2 p-3 bg-red-50 rounded-xl border border-red-100 text-red-700 text-xs font-medium">
+                      <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <span>Save failed: {saveResult.msg}</span>
+                    </div>
+                  )}
+
                   <button
                     onClick={() => savePhase(phase.id)}
                     disabled={saving}
-                    className="w-full h-12 bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-50"
+                    className="w-full h-12 bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {saving ? "Saving..." : "Save Changes"}
+                    {saving ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
+                    ) : saveResult?.id === phase.id && saveResult.ok ? (
+                      <><CheckCircle2 className="h-4 w-4" /> Saved</>
+                    ) : (
+                      "Save Changes"
+                    )}
                   </button>
                 </div>
               )}
