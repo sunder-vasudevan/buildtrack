@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { X, Upload, Loader2, Search, ChevronDown } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { BudgetItem } from "@/lib/types";
-import { parseDeliverableFromNotes, cleanDeliverableNotes } from "@/lib/utils";
+import { parseDeliverableFromNotes, cleanDeliverableNotes, parseQuoteRefFromNotes } from "@/lib/utils";
 
 const CATEGORIES = [
   "Civil Labour", "Steel & TMT", "Cement & Aggregates", "Bricks & Blocks",
@@ -18,28 +18,29 @@ interface ExpenseFormProps {
   onClose: () => void;
   onSaved: () => void;
   prefillItem?: BudgetItem;
+  initialLinkedItem?: BudgetItem; // pre-link to this quote; always INSERTs a new child expense
 }
 
-export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps) {
+export function ExpenseForm({ onClose, onSaved, prefillItem, initialLinkedItem }: ExpenseFormProps) {
   const parsedDel = prefillItem ? parseDeliverableFromNotes(prefillItem.notes) : "";
   const initialCleanNotes = prefillItem ? cleanDeliverableNotes(prefillItem.notes) : "";
 
   const [form, setForm] = useState({
     item_name: prefillItem?.item_name ?? "",
-    category: prefillItem?.category ?? "",
+    category: prefillItem?.category ?? (initialLinkedItem?.category ?? ""),
     amount: prefillItem?.actual_cost ? String(prefillItem.actual_cost) : (prefillItem?.quoted_cost ? String(prefillItem.quoted_cost) : ""),
     date: new Date().toISOString().split("T")[0],
     worker_name: "",
     notes: initialCleanNotes,
-    phase_id: prefillItem?.phase_id ?? "",
-    deliverable_name: parsedDel ?? "",
+    phase_id: prefillItem?.phase_id ?? (initialLinkedItem?.phase_id ?? ""),
+    deliverable_name: parsedDel ?? (initialLinkedItem ? (parseDeliverableFromNotes(initialLinkedItem.notes) ?? "") : ""),
   });
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
-  const [selectedBudgetItemId, setSelectedBudgetItemId] = useState<string>("");
+  const [selectedBudgetItemId, setSelectedBudgetItemId] = useState<string>(initialLinkedItem?.id ?? "");
   const [showSelector, setShowSelector] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
@@ -164,19 +165,20 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
     const { data: project } = await supabase.from("projects").select("id").single();
     const projectId = project?.id;
 
-    const targetId = prefillItem?.id || selectedBudgetItemId;
     const deliverablePrefix = form.deliverable_name ? `[Deliverable:${form.deliverable_name}]` : "";
     const cleanNotesInput = form.notes;
 
-    if (targetId) {
-      // Find original notes to merge if updating
-      const targetItem = prefillItem || budgetItems.find((item) => item.id === targetId);
-      const originalCleanNotes = cleanDeliverableNotes(targetItem?.notes);
+    if (prefillItem) {
+      // Editing an existing expense: UPDATE it and preserve any existing QuoteRef
+      const originalCleanNotes = cleanDeliverableNotes(prefillItem.notes);
+      const existingQuoteRef = parseQuoteRefFromNotes(prefillItem.notes);
 
       const finalNotes = [originalCleanNotes, cleanNotesInput, form.worker_name ? `Worker: ${form.worker_name}` : "", receiptUrl ? `Receipt: ${receiptUrl}` : ""].filter(Boolean).join(" | ");
-      const notesWithPrefix = [deliverablePrefix, finalNotes].filter(Boolean).join(" ");
+      let notesWithPrefix = [deliverablePrefix, finalNotes].filter(Boolean).join(" ");
+      if (existingQuoteRef) {
+        notesWithPrefix = `${notesWithPrefix} [QuoteRef:${existingQuoteRef}]`.trim();
+      }
 
-      // Update existing budget item
       await supabase
         .from("budget_items")
         .update({
@@ -188,11 +190,14 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
           phase_id: form.phase_id || null,
           notes: notesWithPrefix || null,
         })
-        .eq("id", targetId);
+        .eq("id", prefillItem.id);
     } else {
-      // Insert new budget item as expense
+      // Insert a new expense (always insert, even when linked to a quote)
       const finalNotes = [cleanNotesInput, form.worker_name ? `Worker: ${form.worker_name}` : "", receiptUrl ? `Receipt: ${receiptUrl}` : ""].filter(Boolean).join(" | ");
-      const notesWithPrefix = [deliverablePrefix, finalNotes].filter(Boolean).join(" ");
+      let notesWithPrefix = [deliverablePrefix, finalNotes].filter(Boolean).join(" ");
+      if (selectedBudgetItemId) {
+        notesWithPrefix = `${notesWithPrefix} [QuoteRef:${selectedBudgetItemId}]`.trim();
+      }
 
       await supabase.from("budget_items").insert({
         project_id: projectId,
@@ -216,7 +221,7 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
       <div className="bg-white w-full sm:max-w-lg rounded-2xl max-h-[80vh] overflow-y-auto relative shadow-2xl">
         <div className="p-4 border-b border-border sticky top-0 bg-white rounded-t-2xl flex items-center justify-between">
           <h2 className="font-bold text-gray-900">
-            {prefillItem ? `Log Actual — ${prefillItem.item_name}` : "Add Expense"}
+            {prefillItem ? `Edit Expense — ${prefillItem.item_name}` : initialLinkedItem ? `Add Expense — ${initialLinkedItem.item_name}` : "Add Expense"}
           </h2>
           <button onClick={onClose} className="p-2 text-muted-foreground"><X className="h-4 w-4" /></button>
         </div>
@@ -370,7 +375,17 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
           {error && <p className="text-sm font-semibold text-red-600 bg-red-50 rounded-xl p-3 border border-red-200">{error}</p>}
 
           {/* Link to Quote Selection */}
-          {!prefillItem ? (
+          {initialLinkedItem ? (
+            <div className="bg-blue-50/50 rounded-xl p-3 border border-blue-100 flex flex-col gap-0.5">
+              <span className="text-[9px] font-extrabold uppercase tracking-wider text-blue-700">Against Quote</span>
+              <span className="text-xs font-bold text-blue-950">{initialLinkedItem.item_name}</span>
+              {initialLinkedItem.quoted_cost && (
+                <span className="text-[10px] text-blue-600 font-semibold">
+                  Total estimate: ₹{initialLinkedItem.quoted_cost.toLocaleString("en-IN")}
+                </span>
+              )}
+            </div>
+          ) : !prefillItem ? (
             <div>
               <label className="text-xs font-semibold text-gray-700 block mb-1">Link to Quote / Budget Item</label>
               <button
@@ -435,7 +450,7 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
 
           {/* Amount and Date */}
           {(() => {
-            const selectedItem = prefillItem || budgetItems.find((item) => item.id === selectedBudgetItemId);
+            const selectedItem = prefillItem || initialLinkedItem || budgetItems.find((item) => item.id === selectedBudgetItemId);
             const rawQuotedCost = selectedItem?.quoted_cost;
             const quotedCost = rawQuotedCost !== null && rawQuotedCost !== undefined ? rawQuotedCost : undefined;
             const inputAmount = form.amount ? Number(form.amount) : 0;

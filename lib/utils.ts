@@ -90,3 +90,14 @@ export function cleanDeliverableNotes(notes: string | null | undefined): string 
   if (!notes) return "";
   return notes.trim().replace(/^\[Deliverable:[^\]]*\]\s*/i, "").trim();
 }
+
+export function parseQuoteRefFromNotes(notes: string | null | undefined): string | null {
+  if (!notes) return null;
+  const match = notes.match(/\[QuoteRef:([^\]]+)\]/i);
+  return match ? match[1] : null;
+}
+
+export function cleanQuoteRefNotes(notes: string | null | undefined): string {
+  if (!notes) return "";
+  return notes.replace(/\s*\[QuoteRef:[^\]]+\]\s*/gi, " ").trim();
+}

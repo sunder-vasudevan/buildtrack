@@ -2,8 +2,8 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { BudgetItem, Income } from "@/lib/types";
-import { formatINR, formatDate, parseDeliverableFromNotes, cleanDeliverableNotes } from "@/lib/utils";
-import { ChevronDown, ChevronUp, PencilLine, Download, Plus, Landmark, ArrowDownToLine, X, Loader2, DollarSign, Wallet, Trash2, Search } from "lucide-react";
+import { formatINR, formatDate, parseDeliverableFromNotes, cleanDeliverableNotes, parseQuoteRefFromNotes, cleanQuoteRefNotes } from "@/lib/utils";
+import { ChevronDown, ChevronUp, PencilLine, Download, Plus, Landmark, X, Loader2, Wallet, Trash2, Search } from "lucide-react";
 import { ExpenseForm } from "@/components/finances/ExpenseForm";
 import { supabase } from "@/lib/supabase";
 
@@ -26,6 +26,7 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
   const [filterCat, setFilterCat] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
+  const [addingExpenseForItem, setAddingExpenseForItem] = useState<BudgetItem | null>(null);
   
   // Add Funds form state
   const [showFundsForm, setShowFundsForm] = useState(false);
@@ -45,15 +46,38 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
 
   const searchQueryLower = searchQuery.toLowerCase().trim();
 
+  // Split items into child expenses (linked to a quote) and top-level items
+  const childExpenseMap = useMemo(() => {
+    const map: Record<string, BudgetItem[]> = {};
+    items.forEach((item) => {
+      const parentId = parseQuoteRefFromNotes(item.notes);
+      if (parentId) {
+        if (!map[parentId]) map[parentId] = [];
+        map[parentId].push(item);
+      }
+    });
+    // Sort each parent's children by payment_date ascending
+    Object.values(map).forEach((children) =>
+      children.sort((a, b) => (a.payment_date ?? "").localeCompare(b.payment_date ?? ""))
+    );
+    return map;
+  }, [items]);
+
+  // Only top-level items (not child expenses) go into the main grouped view
+  const topLevelItems = useMemo(
+    () => items.filter((item) => !parseQuoteRefFromNotes(item.notes)),
+    [items]
+  );
+
   const filteredItems = useMemo(() => {
-    if (!searchQueryLower) return items;
-    return items.filter((item) => {
+    if (!searchQueryLower) return topLevelItems;
+    return topLevelItems.filter((item) => {
       const name = (item.item_name || "").toLowerCase();
       const cat = (item.category || "").toLowerCase();
       const notes = (item.notes || "").toLowerCase();
       return name.includes(searchQueryLower) || cat.includes(searchQueryLower) || notes.includes(searchQueryLower);
     });
-  }, [items, searchQueryLower]);
+  }, [topLevelItems, searchQueryLower]);
 
   const grouped = useMemo(() => {
     const res = filteredItems.reduce<Record<string, BudgetItem[]>>((acc, item) => {
@@ -299,18 +323,44 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
     setSavingFunds(false);
   }
 
-  async function handleDeleteExpense(item: BudgetItem) {
-    const isCustom = !item.quoted_cost;
-    const confirmMessage = isCustom
-      ? `Are you sure you want to permanently delete the custom expense "${item.item_name}"?`
-      : `Are you sure you want to reset/delete the logged payment of ${formatINR(item.actual_cost || 0)} for "${item.item_name}"?`;
+  async function handleDeleteChildExpense(child: BudgetItem) {
+    if (!window.confirm(`Delete this expense of ${formatINR(child.actual_cost || 0)} for "${child.item_name}"?`)) return;
+    try {
+      const { error } = await supabase.from("budget_items").delete().eq("id", child.id);
+      if (error) throw error;
+      setItems((prev) => prev.filter((i) => i.id !== child.id));
+    } catch (err) {
+      console.error("Error deleting child expense:", err);
+      alert("Failed to delete. Please try again.");
+    }
+  }
 
-    if (!window.confirm(confirmMessage)) {
-      return;
+  async function handleDeleteExpense(item: BudgetItem) {
+    const children = childExpenseMap[item.id] || [];
+    const isCustom = !item.quoted_cost;
+
+    let confirmMessage: string;
+    if (children.length > 0) {
+      confirmMessage = `Delete "${item.item_name}" and its ${children.length} expense${children.length > 1 ? "s" : ""}? This cannot be undone.`;
+    } else if (isCustom) {
+      confirmMessage = `Permanently delete the custom expense "${item.item_name}"?`;
+    } else {
+      confirmMessage = `Reset/delete the logged payment of ${formatINR(item.actual_cost || 0)} for "${item.item_name}"?`;
     }
 
+    if (!window.confirm(confirmMessage)) return;
+
     try {
-      if (isCustom) {
+      if (children.length > 0) {
+        // Delete all child expenses first, then the parent quote itself
+        await Promise.all(children.map((c) => supabase.from("budget_items").delete().eq("id", c.id)));
+        // If parent has a quoted_cost it's a quote we keep; if no quoted_cost, delete entirely
+        if (isCustom) {
+          await supabase.from("budget_items").delete().eq("id", item.id);
+        }
+        const { data } = await supabase.from("budget_items").select("*").order("category");
+        if (data) setItems(data as BudgetItem[]);
+      } else if (isCustom) {
         const { error } = await supabase.from("budget_items").delete().eq("id", item.id);
         if (error) throw error;
         setItems((prev) => prev.filter((i) => i.id !== item.id));
@@ -322,7 +372,6 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
             payment_date: null,
             status: "Approved",
             notes: null,
-            receipt_url: null,
           })
           .eq("id", item.id);
         if (error) throw error;
@@ -361,6 +410,17 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
             const { data } = await supabase.from("budget_items").select("*").order("category");
             if (data) setItems(data as BudgetItem[]);
             setEditingItem(null);
+          }}
+        />
+      )}
+      {addingExpenseForItem && (
+        <ExpenseForm
+          initialLinkedItem={addingExpenseForItem}
+          onClose={() => setAddingExpenseForItem(null)}
+          onSaved={async () => {
+            const { data } = await supabase.from("budget_items").select("*").order("category");
+            if (data) setItems(data as BudgetItem[]);
+            setAddingExpenseForItem(null);
           }}
         />
       )}
@@ -514,8 +574,13 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
                     const catItems = grouped[cat];
                     if (!catItems || catItems.length === 0) return null;
                     const catQuoted = catItems.reduce((s, i) => s + (i.quoted_cost ?? 0), 0);
-                    const catActual = catItems.reduce((s, i) => s + (i.actual_cost ?? 0), 0);
                   const isOpen = budgetExpandedCat === cat || searchQueryLower !== "";
+
+                  // Compute total paid for category including children
+                  const catActualWithChildren = catItems.reduce((s, i) => {
+                    const childrenSum = (childExpenseMap[i.id] || []).reduce((cs, c) => cs + (c.actual_cost ?? 0), 0);
+                    return s + (i.actual_cost ?? 0) + childrenSum;
+                  }, 0);
 
                   return (
                     <div key={cat} className="bg-white rounded-xl shadow-sm border border-border overflow-hidden transition-all">
@@ -526,7 +591,7 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
                         <div>
                           <p className="font-bold text-sm text-gray-900">{cat}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            {formatINR(catQuoted)} estimate · {catActual > 0 ? formatINR(catActual) + " paid" : "No actuals yet"}
+                            {formatINR(catQuoted)} estimate · {catActualWithChildren > 0 ? formatINR(catActualWithChildren) + " paid" : "No actuals yet"}
                           </p>
                         </div>
                         {isOpen ? <ChevronUp className="h-4.5 w-4.5 text-gray-400" /> : <ChevronDown className="h-4.5 w-4.5 text-gray-400" />}
@@ -535,10 +600,15 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
                       {isOpen && (
                         <div className="border-t border-border divide-y divide-border bg-gray-50/10">
                           {catItems.map((item) => {
-                            const variance = (item.actual_cost ?? 0) - (item.quoted_cost ?? 0);
+                            const children = childExpenseMap[item.id] || [];
+                            const totalChildrenPaid = children.reduce((s, c) => s + (c.actual_cost ?? 0), 0);
+                            const totalPaid = totalChildrenPaid + (children.length === 0 ? (item.actual_cost ?? 0) : 0);
+                            const variance = totalPaid - (item.quoted_cost ?? 0);
                             const linkedPhase = phases.find((p) => p.id === item.phase_id);
                             const linkedDel = parseDeliverableFromNotes(item.notes);
                             const cleanNotes = cleanDeliverableNotes(item.notes);
+                            const isQuote = !!item.quoted_cost;
+                            const isCustomExpense = !item.quoted_cost;
 
                             return (
                               <div key={item.id} className="px-4 py-3.5 space-y-2">
@@ -590,23 +660,30 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
                                     )}
                                   </div>
                                   <div className="flex items-center gap-1.5 shrink-0">
-                                    {item.status && (
+                                    {item.status && children.length === 0 && (
                                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.status === "Paid" ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-700"}`}>
                                         {item.status}
                                       </span>
                                     )}
-                                    <button
-                                      onClick={() => setEditingItem(item)}
-                                      className="p-1.5 rounded-lg border border-border bg-white hover:bg-gray-50 text-gray-500 transition-colors active:scale-95"
-                                      title="Log Actual"
-                                    >
-                                      <PencilLine className="h-3.5 w-3.5" />
-                                    </button>
-                                    {(item.actual_cost !== null || !item.quoted_cost) && (
+                                    {children.length > 0 && (
+                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                                        {children.length} payment{children.length > 1 ? "s" : ""}
+                                      </span>
+                                    )}
+                                    {isCustomExpense && (
+                                      <button
+                                        onClick={() => setEditingItem(item)}
+                                        className="p-1.5 rounded-lg border border-border bg-white hover:bg-gray-50 text-gray-500 transition-colors active:scale-95"
+                                        title="Edit expense"
+                                      >
+                                        <PencilLine className="h-3.5 w-3.5" />
+                                      </button>
+                                    )}
+                                    {(item.actual_cost !== null || isCustomExpense || children.length > 0) && (
                                       <button
                                         onClick={() => handleDeleteExpense(item)}
                                         className="p-1.5 rounded-lg border border-red-100 bg-white hover:bg-red-50 text-red-500 transition-colors active:scale-95"
-                                        title={!item.quoted_cost ? "Delete custom item" : "Reset/delete payment"}
+                                        title={isCustomExpense ? "Delete custom item" : "Delete quote"}
                                       >
                                         <Trash2 className="h-3.5 w-3.5" />
                                       </button>
@@ -621,19 +698,71 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
                                   </div>
                                   <div>
                                     <p className="text-[10px] text-muted-foreground">Paid Actual</p>
-                                    <p className="font-semibold text-gray-800 font-sans mt-0.5">{item.actual_cost ? formatINR(item.actual_cost) : "—"}</p>
+                                    <p className="font-semibold text-gray-800 font-sans mt-0.5">{totalPaid > 0 ? formatINR(totalPaid) : "—"}</p>
                                   </div>
                                   <div>
                                     <p className="text-[10px] text-muted-foreground">Variance</p>
                                     <p className={`font-semibold font-sans mt-0.5 ${variance > 0 ? "text-red-600" : variance < 0 ? "text-emerald-600" : "text-gray-600"}`}>
-                                      {item.actual_cost ? (variance > 0 ? "+" : "") + formatINR(variance) : "—"}
+                                      {totalPaid > 0 && item.quoted_cost ? (variance > 0 ? "+" : "") + formatINR(variance) : "—"}
                                     </p>
                                   </div>
                                 </div>
-                                {cleanNotes && (
+
+                                {/* Legacy single actual_cost (no children yet) */}
+                                {children.length === 0 && item.actual_cost && cleanNotes && (
                                   <p className="text-[10px] text-gray-500 bg-gray-50 rounded p-1.5 mt-1 border border-gray-100/50 break-all whitespace-normal">
                                     📝 {cleanNotes}
                                   </p>
+                                )}
+
+                                {/* Child expenses list */}
+                                {children.length > 0 && (
+                                  <div className="mt-1 space-y-1.5 pl-1 border-l-2 border-blue-100">
+                                    {children.map((child) => {
+                                      const childNotes = cleanQuoteRefNotes(cleanDeliverableNotes(child.notes));
+                                      return (
+                                        <div key={child.id} className="flex items-center justify-between gap-2 py-1.5 px-2 bg-gray-50/60 rounded-lg">
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-[11px] font-semibold text-gray-800 truncate">{child.item_name}</p>
+                                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                                              {child.payment_date ? formatDate(child.payment_date) : "No date"}
+                                              {childNotes ? ` · ${childNotes}` : ""}
+                                            </p>
+                                          </div>
+                                          <div className="flex items-center gap-1.5 shrink-0">
+                                            <span className="text-[11px] font-extrabold text-gray-900 font-sans">
+                                              {formatINR(child.actual_cost)}
+                                            </span>
+                                            <button
+                                              onClick={() => setEditingItem(child)}
+                                              className="p-1 rounded border border-border bg-white hover:bg-gray-50 text-gray-400 transition-colors active:scale-95"
+                                              title="Edit expense"
+                                            >
+                                              <PencilLine className="h-3 w-3" />
+                                            </button>
+                                            <button
+                                              onClick={() => handleDeleteChildExpense(child)}
+                                              className="p-1 rounded border border-red-100 bg-white hover:bg-red-50 text-red-400 transition-colors active:scale-95"
+                                              title="Delete expense"
+                                            >
+                                              <Trash2 className="h-3 w-3" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                {/* Add Expense button for quotes */}
+                                {isQuote && (
+                                  <button
+                                    onClick={() => setAddingExpenseForItem(item)}
+                                    className="flex items-center gap-1.5 h-8 px-3 mt-1 rounded-lg border border-dashed border-blue-300 bg-blue-50/30 hover:bg-blue-50 text-blue-700 text-[11px] font-bold transition-colors active:scale-95 w-full justify-center"
+                                  >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    Add Expense
+                                  </button>
                                 )}
                               </div>
                             );
