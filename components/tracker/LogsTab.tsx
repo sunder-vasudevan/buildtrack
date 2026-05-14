@@ -182,8 +182,10 @@ export function LogsClient({
 
       {/* Timeline */}
       {logs.length === 0 ? (
-        <div className="bg-white rounded-xl p-8 text-center border border-border">
-          <p className="text-muted-foreground text-sm">No logs yet. Tap "Add Log" to start.</p>
+        <div className="bg-white rounded-xl p-10 text-center border border-border">
+          <p className="text-3xl mb-3">📋</p>
+          <p className="text-sm font-semibold text-gray-700">No logs yet</p>
+          <p className="text-xs text-muted-foreground mt-1">Tap <strong>Add Log</strong> or use the <strong>+</strong> button to record today's progress.</p>
         </div>
       ) : (
         <div className="space-y-3">

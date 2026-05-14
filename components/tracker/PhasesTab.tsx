@@ -117,7 +117,13 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
     <div className="p-4 space-y-4 pb-24">
       <div className="pt-4">
         <h1 className="text-xl font-bold text-gray-900">Phases</h1>
-        <p className="text-sm text-muted-foreground">May 14 — Sep 20, 2026</p>
+        {phases.length > 0 && (() => {
+          const starts = phases.map(p => p.start_date).filter(Boolean).sort();
+          const ends = phases.map(p => p.end_date).filter(Boolean).sort();
+          return starts.length && ends.length ? (
+            <p className="text-sm text-muted-foreground">{formatDate(starts[0])} — {formatDate(ends[ends.length - 1])}</p>
+          ) : null;
+        })()}
       </div>
 
       <input 
@@ -127,6 +133,14 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
         ref={fileInputRef} 
         onChange={handleFileUpload} 
       />
+
+      {phases.length === 0 && (
+        <div className="bg-white rounded-xl p-10 text-center border border-border">
+          <p className="text-2xl mb-2">🏗️</p>
+          <p className="text-sm font-semibold text-gray-700">No phases yet</p>
+          <p className="text-xs text-muted-foreground mt-1">Phases will appear here once added to your project.</p>
+        </div>
+      )}
 
       <div className="space-y-3">
         {phases.map((phase) => {
@@ -301,13 +315,15 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
                     />
                   </div>
 
-                  <button
-                    onClick={() => savePhase(phase.id)}
-                    disabled={saving}
-                    className="w-full h-12 bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-50"
-                  >
-                    {saving ? "Saving..." : "Save Changes"}
-                  </button>
+                  <div className="sticky bottom-0 bg-white -mx-4 px-4 pt-3 pb-3 border-t border-border mt-2">
+                    <button
+                      onClick={() => savePhase(phase.id)}
+                      disabled={saving}
+                      className="w-full h-12 bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-50"
+                    >
+                      {saving ? "Saving..." : "Save Changes"}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

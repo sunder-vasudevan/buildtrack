@@ -96,190 +96,188 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   }
 
   return (
-    <div className="space-y-4">
-      <div className="pb-3 border-b border-border flex items-center justify-between">
+    <div className="flex flex-col">
+      {/* Sticky header */}
+      <div className="sticky top-0 z-10 bg-background -mx-5 px-5 pb-3 pt-1 border-b border-border flex items-center justify-between">
         <h2 className="font-bold text-gray-900 text-lg">Log Work Done</h2>
         <button onClick={onClose} className="p-2 text-muted-foreground hover:bg-gray-100 rounded-full transition-colors"><X className="h-4 w-4" /></button>
       </div>
 
-      <div>
-        <label className="text-xs font-semibold text-gray-700 block mb-1.5">Category</label>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { value: "Labour", label: "👷 Labour", activeColor: "bg-amber-100 border-amber-400 text-amber-900" },
-            { value: "Material", label: "🧱 Material", activeColor: "bg-orange-100 border-orange-400 text-orange-900" },
-            { value: "Equipment", label: "🚜 Equipment", activeColor: "bg-blue-100 border-blue-400 text-blue-900" },
-            { value: "Progress", label: "📈 Progress", activeColor: "bg-emerald-100 border-emerald-400 text-emerald-900" },
-            { value: "Others", label: "🔮 Others", activeColor: "bg-gray-100 border-gray-400 text-gray-950" },
-          ].map((cat) => (
-            <button
-              key={cat.value}
-              type="button"
-              onClick={() => setForm(p => ({ ...p, category: cat.value, no_of_labour: cat.value === "Labour" ? p.no_of_labour : "" }))}
-              className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
-                form.category === cat.value
-                  ? `${cat.activeColor} shadow-xs scale-102`
-                  : "bg-white border-border text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
+      <div className="space-y-4 pt-4 pb-2">
+        {/* 1. Date */}
         <div>
           <label className="text-xs font-semibold text-gray-700 block mb-1">Date</label>
-          <input type="date" value={form.log_date} onChange={(e) => setForm((p) => ({ ...p, log_date: e.target.value }))} className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white focus:outline-none focus:border-gray-400" />
+          <input type="date" value={form.log_date} onChange={(e) => setForm((p) => ({ ...p, log_date: e.target.value }))} className="w-full h-11 border border-border rounded-xl px-3 text-sm font-semibold bg-white focus:outline-none focus:border-gray-400" />
         </div>
+
+        {/* 2. Phase */}
         <div>
-          <label className="text-xs font-semibold text-gray-700 block mb-1">No. of Workers</label>
-          <input
-            type="number"
-            disabled={form.category !== "Labour"}
-            value={form.no_of_labour}
-            onChange={(e) => setForm((p) => ({ ...p, no_of_labour: e.target.value }))}
-            className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white disabled:opacity-40 disabled:bg-gray-50 focus:border-gray-500 focus:outline-none"
-            placeholder={form.category === "Labour" ? "e.g. 5" : "N/A"}
-          />
+          <label className="text-xs font-semibold text-gray-700 block mb-1">Phase *</label>
+          <select
+            value={form.phase_id}
+            onChange={(e) => {
+              setForm((p) => ({ ...p, phase_id: e.target.value }));
+              setSelectedDeliverables([]);
+              setShowCustomInput(false);
+              setCustomDeliverable("");
+            }}
+            className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-950 font-semibold focus:border-gray-500 focus:outline-none"
+          >
+            <option value="">Select phase...</option>
+            {phases.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
         </div>
-      </div>
 
-      <div>
-        <label className="text-xs font-semibold text-gray-700 block mb-1.5">Work Status</label>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { value: "In Progress", label: "⏳ In Progress", activeColor: "bg-blue-100 border-blue-400 text-blue-900" },
-            { value: "On Track", label: "🟢 On Track", activeColor: "bg-emerald-100 border-emerald-400 text-emerald-900" },
-            { value: "Delayed", label: "🔴 Delayed", activeColor: "bg-red-100 border-red-400 text-red-900" },
-            { value: "Completed", label: "✅ Completed", activeColor: "bg-teal-100 border-teal-400 text-teal-900" },
-            { value: "Paused", label: "⏸️ Paused", activeColor: "bg-purple-100 border-purple-400 text-purple-900" },
-          ].map((sc) => (
-            <button
-              key={sc.value}
-              type="button"
-              onClick={() => setForm(p => ({ ...p, work_status: sc.value }))}
-              className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
-                form.work_status === sc.value
-                  ? `${sc.activeColor} shadow-xs scale-102`
-                  : "bg-white border-border text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              {sc.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <label className="text-xs font-semibold text-gray-700 block mb-1">Phase *</label>
-        <select
-          value={form.phase_id}
-          onChange={(e) => {
-            setForm((p) => ({ ...p, phase_id: e.target.value }));
-            setSelectedDeliverables([]);
-            setShowCustomInput(false);
-            setCustomDeliverable("");
-          }}
-          className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-950 font-semibold focus:border-gray-500 focus:outline-none"
-        >
-          <option value="">Select phase...</option>
-          {phases.map((p) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
-      </div>
-
-      {form.phase_id && (
-        <div>
-          <label className="text-xs font-semibold text-gray-700 block mb-1.5">
-            Deliverables * <span className="font-normal text-muted-foreground">(tap to select, multiple allowed)</span>
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {deliverableOptions.map((d) => {
-              const active = selectedDeliverables.includes(d.name);
-              return (
-                <button
-                  key={d.name}
-                  type="button"
-                  onClick={() => toggleDeliverable(d.name)}
-                  className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
-                    active
-                      ? "bg-gray-900 text-white border-gray-900"
-                      : "bg-white border-border text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  {active ? "✓ " : ""}{d.name}
-                </button>
-              );
-            })}
-            {!showCustomInput ? (
-              <button
-                type="button"
-                onClick={() => setShowCustomInput(true)}
-                className="px-3 py-1.5 rounded-xl border border-dashed border-gray-300 text-xs font-semibold text-gray-500 hover:bg-gray-50 transition-all"
-              >
-                + Custom
-              </button>
-            ) : (
-              <div className="flex gap-2 w-full mt-1">
-                <input
-                  type="text"
-                  value={customDeliverable}
-                  onChange={(e) => setCustomDeliverable(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") addCustomDeliverable(); if (e.key === "Escape") { setShowCustomInput(false); setCustomDeliverable(""); } }}
-                  className="flex-1 h-9 border border-border rounded-xl px-3 text-xs focus:outline-none focus:border-gray-400 bg-white"
-                  placeholder="Enter deliverable name..."
-                  autoFocus
-                />
+        {/* 3. Deliverables — multi-select chips */}
+        {form.phase_id && (
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1.5">
+              Deliverables * <span className="font-normal text-muted-foreground">(tap to select, multiple allowed)</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {deliverableOptions.map((d) => {
+                const active = selectedDeliverables.includes(d.name);
+                return (
+                  <button
+                    key={d.name}
+                    type="button"
+                    onClick={() => toggleDeliverable(d.name)}
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
+                      active
+                        ? "bg-gray-900 text-white border-gray-900"
+                        : "bg-white border-border text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    {active ? "✓ " : ""}{d.name}
+                  </button>
+                );
+              })}
+              {!showCustomInput ? (
                 <button
                   type="button"
-                  onClick={addCustomDeliverable}
-                  className="h-9 px-3 bg-gray-900 text-white rounded-xl text-xs font-semibold"
+                  onClick={() => setShowCustomInput(true)}
+                  className="px-3 py-1.5 rounded-xl border border-dashed border-gray-300 text-xs font-semibold text-gray-500 hover:bg-gray-50 transition-all"
                 >
-                  Add
+                  + Custom
                 </button>
-                <button
-                  type="button"
-                  onClick={() => { setShowCustomInput(false); setCustomDeliverable(""); }}
-                  className="h-9 px-3 border border-border rounded-xl text-xs text-gray-600"
-                >
-                  Cancel
-                </button>
-              </div>
+              ) : (
+                <div className="flex gap-2 w-full mt-1">
+                  <input
+                    type="text"
+                    value={customDeliverable}
+                    onChange={(e) => setCustomDeliverable(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") addCustomDeliverable(); if (e.key === "Escape") { setShowCustomInput(false); setCustomDeliverable(""); } }}
+                    className="flex-1 h-9 border border-border rounded-xl px-3 text-xs focus:outline-none focus:border-gray-400 bg-white"
+                    placeholder="Enter deliverable name..."
+                    autoFocus
+                  />
+                  <button type="button" onClick={addCustomDeliverable} className="h-9 px-3 bg-gray-900 text-white rounded-xl text-xs font-semibold">Add</button>
+                  <button type="button" onClick={() => { setShowCustomInput(false); setCustomDeliverable(""); }} className="h-9 px-3 border border-border rounded-xl text-xs text-gray-600">Cancel</button>
+                </div>
+              )}
+            </div>
+            {selectedDeliverables.length > 1 && (
+              <p className="text-[11px] text-blue-600 font-semibold mt-1.5">
+                {selectedDeliverables.length} deliverables selected — {selectedDeliverables.length} log entries will be created
+              </p>
             )}
           </div>
-          {selectedDeliverables.length > 1 && (
-            <p className="text-[11px] text-blue-600 font-semibold mt-1.5">
-              {selectedDeliverables.length} deliverables selected — {selectedDeliverables.length} log entries will be created
-            </p>
+        )}
+
+        {/* 4. Category */}
+        <div>
+          <label className="text-xs font-semibold text-gray-700 block mb-1.5">Category</label>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { value: "Labour", label: "👷 Labour", activeColor: "bg-amber-100 border-amber-400 text-amber-900" },
+              { value: "Material", label: "🧱 Material", activeColor: "bg-orange-100 border-orange-400 text-orange-900" },
+              { value: "Equipment", label: "🚜 Equipment", activeColor: "bg-blue-100 border-blue-400 text-blue-900" },
+              { value: "Progress", label: "📈 Progress", activeColor: "bg-emerald-100 border-emerald-400 text-emerald-900" },
+              { value: "Others", label: "🔮 Others", activeColor: "bg-gray-100 border-gray-400 text-gray-950" },
+            ].map((cat) => (
+              <button
+                key={cat.value}
+                type="button"
+                onClick={() => setForm(p => ({ ...p, category: cat.value, no_of_labour: cat.value === "Labour" ? p.no_of_labour : "" }))}
+                className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
+                  form.category === cat.value
+                    ? `${cat.activeColor} shadow-xs scale-102`
+                    : "bg-white border-border text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+          {form.category === "Labour" && (
+            <div className="mt-2">
+              <input
+                type="number"
+                value={form.no_of_labour}
+                onChange={(e) => setForm((p) => ({ ...p, no_of_labour: e.target.value }))}
+                className="w-full h-10 border border-border rounded-xl px-3 text-xs bg-white focus:border-gray-500 focus:outline-none"
+                placeholder="No. of workers (e.g. 5)"
+              />
+            </div>
           )}
         </div>
-      )}
 
-      <div>
-        <label className="text-xs font-semibold text-gray-700 block mb-1">Work Description *</label>
-        <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="w-full border border-border rounded-xl px-3.5 py-3 text-xs resize-none focus:outline-none focus:border-gray-400 bg-white text-gray-900 font-medium" rows={3} placeholder="Describe what progress was achieved today..." />
+        {/* 5. Work Status */}
+        <div>
+          <label className="text-xs font-semibold text-gray-700 block mb-1.5">Work Status</label>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { value: "In Progress", label: "⏳ In Progress", activeColor: "bg-blue-100 border-blue-400 text-blue-900" },
+              { value: "On Track", label: "🟢 On Track", activeColor: "bg-emerald-100 border-emerald-400 text-emerald-900" },
+              { value: "Delayed", label: "🔴 Delayed", activeColor: "bg-red-100 border-red-400 text-red-900" },
+              { value: "Completed", label: "✅ Completed", activeColor: "bg-teal-100 border-teal-400 text-teal-900" },
+              { value: "Paused", label: "⏸️ Paused", activeColor: "bg-purple-100 border-purple-400 text-purple-900" },
+            ].map((sc) => (
+              <button
+                key={sc.value}
+                type="button"
+                onClick={() => setForm(p => ({ ...p, work_status: sc.value }))}
+                className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
+                  form.work_status === sc.value
+                    ? `${sc.activeColor} shadow-xs scale-102`
+                    : "bg-white border-border text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {sc.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 6. Description */}
+        <div>
+          <label className="text-xs font-semibold text-gray-700 block mb-1">Work Description *</label>
+          <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="w-full border border-border rounded-xl px-3.5 py-3 text-xs resize-none focus:outline-none focus:border-gray-400 bg-white text-gray-900 font-medium" rows={3} placeholder="Describe what progress was achieved today..." />
+        </div>
+
+        {/* 7. Issues */}
+        <div>
+          <label className="text-xs font-semibold text-gray-700 block mb-1">Issues (optional)</label>
+          <textarea value={form.issues} onChange={(e) => setForm((p) => ({ ...p, issues: e.target.value }))} className="w-full border border-border rounded-xl px-3.5 py-2.5 text-xs resize-none focus:outline-none focus:border-gray-400 bg-white" rows={2} placeholder="Any issues or blockers encountered..." />
+        </div>
+
+        {/* 8. Photos */}
+        <div>
+          <label className="text-xs font-semibold text-gray-700 block mb-1">Progress Photos</label>
+          <label className="flex items-center gap-3 w-full h-12 border-2 border-dashed border-sky-200 bg-sky-50/10 hover:bg-sky-50/30 rounded-xl px-3.5 cursor-pointer hover:border-sky-400 transition-colors">
+            <Upload className="h-4 w-4 text-sky-600 flex-shrink-0" />
+            <span className="text-xs text-sky-700 font-semibold truncate">
+              {photoFiles.length > 0 ? `${photoFiles.length} photo${photoFiles.length !== 1 ? "s" : ""} selected` : "Tap to add site photos..."}
+            </span>
+            <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => setPhotoFiles(Array.from(e.target.files ?? []))} />
+          </label>
+        </div>
       </div>
 
-      <div>
-        <label className="text-xs font-semibold text-gray-700 block mb-1">Issues (optional)</label>
-        <textarea value={form.issues} onChange={(e) => setForm((p) => ({ ...p, issues: e.target.value }))} className="w-full border border-border rounded-xl px-3.5 py-2.5 text-xs resize-none focus:outline-none focus:border-gray-400 bg-white" rows={2} placeholder="Any issues or blockers encountered..." />
-      </div>
-
-      <div>
-        <label className="text-xs font-semibold text-gray-700 block mb-1">Progress Photos</label>
-        <label className="flex items-center gap-3 w-full h-12 border-2 border-dashed border-sky-200 bg-sky-50/10 hover:bg-sky-50/30 rounded-xl px-3.5 cursor-pointer hover:border-sky-400 transition-colors">
-          <Upload className="h-4 w-4 text-sky-600 flex-shrink-0" />
-          <span className="text-xs text-sky-700 font-semibold truncate">
-            {photoFiles.length > 0 ? `${photoFiles.length} photo${photoFiles.length !== 1 ? "s" : ""} selected` : "Tap to add site photos..."}
-          </span>
-          <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => setPhotoFiles(Array.from(e.target.files ?? []))} />
-        </label>
-      </div>
-
-      <div className="flex gap-3">
+      {/* Sticky footer buttons */}
+      <div className="sticky bottom-0 bg-background -mx-5 px-5 pt-3 pb-2 border-t border-border flex gap-3 mt-2">
         <button onClick={onClose} className="flex-1 h-12 border border-border text-gray-900 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors">
           Cancel
         </button>
