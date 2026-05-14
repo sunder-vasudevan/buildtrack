@@ -91,7 +91,10 @@ export function cleanDeliverableNotes(notes: string | null | undefined): string 
   return notes.trim().replace(/^\[Deliverable:[^\]]*\]\s*/i, "").trim();
 }
 
-export function parseQuoteRefFromNotes(notes: string | null | undefined): string | null {
+export function isImageUrl(url: string): boolean {
+  const ext = url.split("?")[0].toLowerCase().split(".").pop() ?? "";
+  return ["jpg", "jpeg", "png", "webp", "gif", "heic", "heif"].includes(ext);
+}
   if (!notes) return null;
   const match = notes.match(/\[QuoteRef:([^\]]+)\]/i);
   return match ? match[1] : null;

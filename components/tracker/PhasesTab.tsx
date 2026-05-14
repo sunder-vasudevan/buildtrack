@@ -189,29 +189,29 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
                                 )}
                                 <span className="text-gray-700 flex-1 leading-snug font-medium">{d.name}</span>
                               </div>
-                              <div className="grid grid-cols-3 gap-2 pl-6">
-                                <div>
+                              <div className="grid grid-cols-3 gap-1.5 pl-6">
+                                <div className="min-w-0">
                                   <p className="text-[10px] text-muted-foreground mb-0.5">Planned start</p>
                                   <input
                                     type="date"
                                     value={plannedStartVal}
                                     onChange={(e) => setDeliverableEdits((prev) => ({ ...prev, [i]: { ...prev[i], planned_start: e.target.value } }))}
-                                    className="w-full h-8 border border-border rounded-md px-2 text-xs bg-white"
+                                    className="w-full h-8 border border-border rounded-md px-1.5 text-[11px] bg-white"
                                   />
                                 </div>
-                                <div>
+                                <div className="min-w-0">
                                   <p className="text-[10px] text-muted-foreground mb-0.5">Planned due</p>
-                                  <p className={`text-xs font-medium pt-1.5 ${isLate ? "text-red-600" : "text-gray-700"}`}>
+                                  <p className={`text-[11px] font-medium pt-1.5 truncate ${isLate ? "text-red-600" : "text-gray-700"}`}>
                                     {d.planned_due ? formatDate(d.planned_due) : "—"}
                                   </p>
                                 </div>
-                                <div>
+                                <div className="min-w-0">
                                   <p className="text-[10px] text-muted-foreground mb-0.5">Actual due</p>
                                   <input
                                     type="date"
                                     value={actualDueVal}
                                     onChange={(e) => setDeliverableEdits((prev) => ({ ...prev, [i]: { ...prev[i], actual_due: e.target.value } }))}
-                                    className="w-full h-8 border border-border rounded-md px-2 text-xs bg-white"
+                                    className="w-full h-8 border border-border rounded-md px-1.5 text-[11px] bg-white"
                                   />
                                 </div>
                               </div>
