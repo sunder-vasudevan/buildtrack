@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { formatINR, daysLeft, formatDate, parseLogDescription } from "@/lib/utils";
+import { formatINR, daysLeft, formatDate, parseLogDescription, parseQuoteRefFromNotes, cleanQuoteRefNotes } from "@/lib/utils";
 import { BudgetItem, DailyLog, Project, Income, Phase, Reminder } from "@/lib/types";
 import { CalendarDays, IndianRupee, X, TrendingUp, Landmark, ShieldAlert, BadgeCheck, FileText, Loader2, Edit3, Save, PencilLine, Trash2 } from "lucide-react";
 import { ReminderWidget, PendingTasksWidget } from "@/components/dashboard/ReminderWidget";
@@ -142,8 +142,31 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     }
   }
 
+  // Build child-expense maps so parent rows aren't double-counted
+  const parentIdsWithChildren = new Set(
+    items
+      .map((i) => parseQuoteRefFromNotes(i.notes))
+      .filter((id): id is string => id !== null)
+  );
+  const childExpenseMap = items.reduce<Record<string, BudgetItem[]>>((map, i) => {
+    const pid = parseQuoteRefFromNotes(i.notes);
+    if (pid) {
+      if (!map[pid]) map[pid] = [];
+      map[pid].push(i);
+    }
+    return map;
+  }, {});
+
   const totalBudget = currentProject?.total_budget ?? 21_74_500;
-  const spent = items.reduce((s, i) => s + (i.actual_cost ?? 0), 0);
+  // Sum only top-level items; when a parent has child expenses use the children's sum instead
+  const spent = items.reduce((s, i) => {
+    if (parseQuoteRefFromNotes(i.notes)) return s; // skip children (counted via parent)
+    if (parentIdsWithChildren.has(i.id)) {
+      const childSum = (childExpenseMap[i.id] ?? []).reduce((cs, c) => cs + (c.actual_cost ?? 0), 0);
+      return s + childSum;
+    }
+    return s + (i.actual_cost ?? 0);
+  }, 0);
   const totalIncome = allIncomes.reduce((s, i) => s + (i.amount ?? 0), 0);
   const remaining = totalBudget - spent;
   const days = currentProject ? daysLeft(currentProject.end_date) : 0;
@@ -153,6 +176,9 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     const breakdown: Record<string, { estimate: number; spent: number; itemsCount: number; paidCount: number }> = {};
     
     items.forEach((item) => {
+      // Skip child expenses — they're rolled up into their parent row
+      if (parseQuoteRefFromNotes(item.notes)) return;
+
       let cat = item.category || "Misc/Unplanned";
       if (cat === "Vendor Quotes" || cat === "Additional Items") {
         cat = "Estimates";
@@ -160,15 +186,21 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
       if (cat === "Other" || cat === "Others") {
         cat = "Misc/Unplanned";
       }
-      
+
       if (!breakdown[cat]) {
         breakdown[cat] = { estimate: 0, spent: 0, itemsCount: 0, paidCount: 0 };
       }
-      
+
       breakdown[cat].estimate += item.quoted_cost || 0;
-      breakdown[cat].spent += item.actual_cost || 0;
+
+      // Use combined child sum when children exist
+      const effectiveSpent = parentIdsWithChildren.has(item.id)
+        ? (childExpenseMap[item.id] ?? []).reduce((cs, c) => cs + (c.actual_cost ?? 0), 0)
+        : (item.actual_cost || 0);
+
+      breakdown[cat].spent += effectiveSpent;
       breakdown[cat].itemsCount += 1;
-      if (item.actual_cost) {
+      if (effectiveSpent > 0) {
         breakdown[cat].paidCount += 1;
       }
     });
@@ -338,7 +370,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
 
       {/* Footer */}
       <div className="pt-8 pb-16 text-center shrink-0">
-        <p className="text-xs text-muted-foreground">v1.3.5 · 12 May 2026 · Built in Hyderabad with ❤️</p>
+        <p className="text-xs text-muted-foreground">v1.4.2 · 14 May 2026 · Built in Hyderabad with ❤️</p>
       </div>
 
       {/* ================================= DETAIL MODALS ================================= */}
@@ -507,7 +539,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
                   spentTab === "detailed" ? "border-orange-500 text-orange-700" : "border-transparent text-gray-500 hover:text-gray-900"
                 }`}
               >
-                Detailed Logs ({items.filter(i => i.actual_cost !== null && i.actual_cost > 0).length})
+                Detailed Logs ({items.filter(i => !parseQuoteRefFromNotes(i.notes) && (parentIdsWithChildren.has(i.id) ? (childExpenseMap[i.id] ?? []).some(c => c.actual_cost) : (i.actual_cost !== null && i.actual_cost > 0))).length})
               </button>
             </div>
             
@@ -547,61 +579,98 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
                   <p className="text-xs text-muted-foreground">Individual expense logs. Tap ✏️ to edit or 🗑️ to delete:</p>
                   <div className="space-y-3">
                     {(() => {
+                      // Show only top-level items; combine child sums for parents with children
                       const loggedItems = items
-                        .filter((i) => i.actual_cost !== null && i.actual_cost > 0)
+                        .filter((i) => {
+                          if (parseQuoteRefFromNotes(i.notes)) return false; // hide child rows
+                          const effectiveSpent = parentIdsWithChildren.has(i.id)
+                            ? (childExpenseMap[i.id] ?? []).reduce((cs, c) => cs + (c.actual_cost ?? 0), 0)
+                            : (i.actual_cost ?? 0);
+                          return effectiveSpent > 0;
+                        })
                         .sort((a, b) => {
-                          const dateA = a.payment_date ? new Date(a.payment_date).getTime() : 0;
-                          const dateB = b.payment_date ? new Date(b.payment_date).getTime() : 0;
-                          return dateB - dateA;
+                          const latestDate = (item: BudgetItem) => {
+                            if (parentIdsWithChildren.has(item.id)) {
+                              const childDates = (childExpenseMap[item.id] ?? [])
+                                .map((c) => c.payment_date ? new Date(c.payment_date).getTime() : 0);
+                              return childDates.length > 0 ? Math.max(...childDates) : 0;
+                            }
+                            return item.payment_date ? new Date(item.payment_date).getTime() : 0;
+                          };
+                          return latestDate(b) - latestDate(a);
                         });
 
                       if (loggedItems.length === 0) {
                         return <p className="text-xs text-center text-muted-foreground py-8">No logged expenses found. 💸</p>;
                       }
 
-                      return loggedItems.map((item) => (
-                        <div key={item.id} className="border border-border/60 rounded-xl p-3 bg-white hover:bg-gray-50/40 transition-all flex flex-col gap-1.5">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1">
-                              <p className="font-bold text-gray-900 text-xs">{item.item_name}</p>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                <span className="text-[9px] font-bold bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded border border-orange-100/50">
-                                  📂 {item.category || "Other"}
-                                </span>
-                                {item.payment_date && (
-                                  <span className="text-[9px] font-medium text-muted-foreground bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100/50">
-                                    📅 {formatDate(item.payment_date)}
+                      return loggedItems.map((item) => {
+                        const hasChildren = parentIdsWithChildren.has(item.id);
+                        const children = hasChildren ? (childExpenseMap[item.id] ?? []) : [];
+                        const effectiveSpent = hasChildren
+                          ? children.reduce((cs, c) => cs + (c.actual_cost ?? 0), 0)
+                          : (item.actual_cost ?? 0);
+                        const cleanedNotes = cleanQuoteRefNotes(item.notes);
+
+                        return (
+                          <div key={item.id} className="border border-border/60 rounded-xl p-3 bg-white hover:bg-gray-50/40 transition-all flex flex-col gap-1.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <p className="font-bold text-gray-900 text-xs">{item.item_name}</p>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  <span className="text-[9px] font-bold bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded border border-orange-100/50">
+                                    📂 {item.category || "Other"}
                                   </span>
-                                )}
+                                  {item.payment_date && (
+                                    <span className="text-[9px] font-medium text-muted-foreground bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100/50">
+                                      📅 {formatDate(item.payment_date)}
+                                    </span>
+                                  )}
+                                  {hasChildren && (
+                                    <span className="text-[9px] font-medium text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100/50">
+                                      {children.length} payments
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  onClick={() => { setEditingItem(item); setActiveModal(null); }}
+                                  className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
+                                  title="Edit Expense"
+                                >
+                                  <PencilLine className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteExpense(item)}
+                                  className="p-1 rounded-lg hover:bg-red-50 text-red-500 transition-colors"
+                                  title="Delete/Reset Expense"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                onClick={() => { setEditingItem(item); setActiveModal(null); }}
-                                className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
-                                title="Edit Expense"
-                              >
-                                <PencilLine className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteExpense(item)}
-                                className="p-1 rounded-lg hover:bg-red-50 text-red-500 transition-colors"
-                                title="Delete/Reset Expense"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
+                            {hasChildren && (
+                              <div className="pl-1 space-y-1">
+                                {children.map((child) => (
+                                  <div key={child.id} className="flex items-center justify-between text-[10px] text-muted-foreground bg-gray-50/60 rounded px-2 py-1">
+                                    <span className="truncate max-w-[60%]">{child.item_name || cleanQuoteRefNotes(child.notes) || "Payment"}</span>
+                                    <span className="font-semibold text-gray-700 font-sans">{formatINR(child.actual_cost ?? 0)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="flex items-center justify-between border-t border-gray-50/50 pt-1.5 mt-0.5">
+                              <span className="text-[10px] text-muted-foreground italic truncate max-w-[65%]">
+                                {cleanedNotes ? `📝 ${cleanedNotes}` : "No notes"}
+                              </span>
+                              <span className="font-extrabold text-orange-800 text-xs font-sans">
+                                {formatINR(effectiveSpent)}
+                              </span>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between border-t border-gray-50/50 pt-1.5 mt-0.5">
-                            <span className="text-[10px] text-muted-foreground italic truncate max-w-[65%]">
-                              {item.notes ? `📝 ${item.notes.replace(/\[Deliverable:.*?\]/g, "").replace(/\|/g, " ").replace(/\s+/g, " ").trim()}` : "No notes"}
-                            </span>
-                            <span className="font-extrabold text-orange-800 text-xs font-sans">
-                              {formatINR(item.actual_cost ?? 0)}
-                            </span>
-                          </div>
-                        </div>
-                      ));
+                        );
+                      });
                     })()}
                   </div>
                 </>
