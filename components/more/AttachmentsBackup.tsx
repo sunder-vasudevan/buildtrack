@@ -9,7 +9,7 @@ import { collectAttachments } from "@/lib/attachments";
 type Category = "receipts" | "logs" | "plans";
 
 const CATEGORIES: { key: Category; label: string; description: string }[] = [
-  { key: "receipts", label: "Receipts", description: "Expense receipts & invoices" },
+  { key: "receipts", label: "Receipts", description: "All 📎 expense attachments" },
   { key: "logs", label: "Site Photos", description: "Daily log photos" },
   { key: "plans", label: "Plans", description: "Floor plans & documents" },
 ];

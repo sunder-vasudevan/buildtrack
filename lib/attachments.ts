@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { parseReceiptFromNotes } from "@/lib/utils";
 
 export interface AttachmentFile {
   url: string;
@@ -37,12 +38,12 @@ export async function collectAttachments(
       .not("notes", "is", null);
 
     for (const item of data ?? []) {
-      const match = (item.notes as string).match(/Receipt:\s*(https?:\/\/\S+)/i);
-      if (match) {
+      const url = parseReceiptFromNotes(item.notes);
+      if (url) {
         results.push({
-          url: match[1],
+          url,
           folder: "receipts",
-          filename: receiptFilename(item.payment_date, item.item_name, match[1]),
+          filename: receiptFilename(item.payment_date, item.item_name, url),
         });
       }
     }
