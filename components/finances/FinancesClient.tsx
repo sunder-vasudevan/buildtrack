@@ -2,8 +2,8 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { BudgetItem, Income } from "@/lib/types";
-import { formatINR, formatDate, parseDeliverableFromNotes, cleanDeliverableNotes, parseQuoteRefFromNotes, cleanQuoteRefNotes, parseReceiptFromNotes, cleanReceiptFromNotes } from "@/lib/utils";
-import { ChevronDown, ChevronUp, PencilLine, Download, Plus, Landmark, X, Loader2, Wallet, Trash2, Search, Paperclip } from "lucide-react";
+import { formatINR, formatDate, parseDeliverableFromNotes, cleanDeliverableNotes, parseQuoteRefFromNotes, cleanQuoteRefNotes, parseReceiptFromNotes, cleanReceiptFromNotes, isImageUrl } from "@/lib/utils";
+import { ChevronDown, ChevronUp, PencilLine, Download, Plus, Landmark, X, Loader2, Wallet, Trash2, Search, FileText } from "lucide-react";
 import { ExpenseForm } from "@/components/finances/ExpenseForm";
 import { supabase } from "@/lib/supabase";
 
@@ -687,18 +687,6 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
                                         {children.length} payment{children.length > 1 ? "s" : ""}
                                       </span>
                                     )}
-                                    {receiptUrl && (
-                                      <a
-                                        href={receiptUrl}
-                                        download
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="p-1.5 rounded-lg border border-sky-100 bg-sky-50 hover:bg-sky-100 text-sky-600 transition-colors active:scale-95"
-                                        title="Download receipt"
-                                      >
-                                        <Paperclip className="h-3.5 w-3.5" />
-                                      </a>
-                                    )}
                                     {(isCustomExpense || (isQuote && item.actual_cost !== null && children.length === 0)) && (
                                       <button
                                         onClick={() => setEditingItem(item)}
@@ -744,6 +732,32 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
                                   </p>
                                 )}
 
+                                {/* Receipt preview for top-level expense */}
+                                {receiptUrl && children.length === 0 && (
+                                  isImageUrl(receiptUrl) ? (
+                                    <a href={receiptUrl} target="_blank" rel="noopener noreferrer" className="block mt-2">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={receiptUrl}
+                                        alt="Receipt"
+                                        className="w-full rounded-lg border border-border object-cover max-h-48"
+                                      />
+                                    </a>
+                                  ) : (
+                                    <a
+                                      href={receiptUrl}
+                                      download
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="mt-2 flex items-center gap-2 p-2.5 bg-gray-50 border border-border rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+                                    >
+                                      <FileText className="h-4 w-4 text-red-500 shrink-0" />
+                                      <span className="flex-1 truncate">Receipt / Invoice</span>
+                                      <Download className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                                    </a>
+                                  )
+                                )}
+
                                 {/* Child expenses list */}
                                 {children.length > 0 && (
                                   <div className="mt-1 space-y-1.5 pl-1 border-l-2 border-blue-100">
@@ -751,45 +765,60 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
                                       const childReceiptUrl = parseReceiptFromNotes(child.notes);
                                       const childNotes = cleanReceiptFromNotes(cleanQuoteRefNotes(cleanDeliverableNotes(child.notes)));
                                       return (
-                                        <div key={child.id} className="flex items-center justify-between gap-2 py-1.5 px-2 bg-gray-50/60 rounded-lg">
-                                          <div className="flex-1 min-w-0">
-                                            <p className="text-[11px] font-semibold text-gray-800 truncate">{child.item_name}</p>
-                                            <p className="text-[10px] text-muted-foreground mt-0.5">
-                                              {child.payment_date ? formatDate(child.payment_date) : "No date"}
-                                              {childNotes ? ` · ${childNotes}` : ""}
-                                            </p>
+                                        <div key={child.id} className="py-1.5 px-2 bg-gray-50/60 rounded-lg space-y-1.5">
+                                          <div className="flex items-center justify-between gap-2">
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-[11px] font-semibold text-gray-800 truncate">{child.item_name}</p>
+                                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                                {child.payment_date ? formatDate(child.payment_date) : "No date"}
+                                                {childNotes ? ` · ${childNotes}` : ""}
+                                              </p>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                              <span className="text-[11px] font-extrabold text-gray-900 font-sans">
+                                                {formatINR(child.actual_cost)}
+                                              </span>
+                                              <button
+                                                onClick={() => setEditingItem(child)}
+                                                className="p-1 rounded border border-border bg-white hover:bg-gray-50 text-gray-400 transition-colors active:scale-95"
+                                                title="Edit expense"
+                                              >
+                                                <PencilLine className="h-3 w-3" />
+                                              </button>
+                                              <button
+                                                onClick={() => handleDeleteChildExpense(child)}
+                                                className="p-1 rounded border border-red-100 bg-white hover:bg-red-50 text-red-400 transition-colors active:scale-95"
+                                                title="Delete expense"
+                                              >
+                                                <Trash2 className="h-3 w-3" />
+                                              </button>
+                                            </div>
                                           </div>
-                                          <div className="flex items-center gap-1.5 shrink-0">
-                                            <span className="text-[11px] font-extrabold text-gray-900 font-sans">
-                                              {formatINR(child.actual_cost)}
-                                            </span>
-                                            {childReceiptUrl && (
+                                          {/* Receipt preview for child expense */}
+                                          {childReceiptUrl && (
+                                            isImageUrl(childReceiptUrl) ? (
+                                              <a href={childReceiptUrl} target="_blank" rel="noopener noreferrer" className="block">
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img
+                                                  src={childReceiptUrl}
+                                                  alt="Receipt"
+                                                  className="w-full rounded-md border border-border object-cover max-h-40"
+                                                />
+                                              </a>
+                                            ) : (
                                               <a
                                                 href={childReceiptUrl}
                                                 download
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="p-1 rounded border border-sky-100 bg-sky-50 hover:bg-sky-100 text-sky-600 transition-colors active:scale-95"
-                                                title="Download receipt"
+                                                className="flex items-center gap-2 p-2 bg-white border border-border rounded-md text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                                               >
-                                                <Paperclip className="h-3 w-3" />
+                                                <FileText className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                                                <span className="flex-1 truncate">Receipt / Invoice</span>
+                                                <Download className="h-3 w-3 text-gray-400 shrink-0" />
                                               </a>
-                                            )}
-                                            <button
-                                              onClick={() => setEditingItem(child)}
-                                              className="p-1 rounded border border-border bg-white hover:bg-gray-50 text-gray-400 transition-colors active:scale-95"
-                                              title="Edit expense"
-                                            >
-                                              <PencilLine className="h-3 w-3" />
-                                            </button>
-                                            <button
-                                              onClick={() => handleDeleteChildExpense(child)}
-                                              className="p-1 rounded border border-red-100 bg-white hover:bg-red-50 text-red-400 transition-colors active:scale-95"
-                                              title="Delete expense"
-                                            >
-                                              <Trash2 className="h-3 w-3" />
-                                            </button>
-                                          </div>
+                                            )
+                                          )}
                                         </div>
                                       );
                                     })}
