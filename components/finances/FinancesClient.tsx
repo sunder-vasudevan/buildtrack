@@ -39,7 +39,20 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
     notes: "",
   });
 
-  const spent = useMemo(() => items.reduce((s, i) => s + (i.actual_cost ?? 0), 0), [items]);
+  const spent = useMemo(() => {
+    // Build sets to avoid double-counting: parents with children should not
+    // also count their own legacy actual_cost (children are counted separately)
+    const parentIdsWithChildren = new Set(
+      items
+        .map((i) => parseQuoteRefFromNotes(i.notes))
+        .filter(Boolean) as string[]
+    );
+    return items.reduce((s, item) => {
+      // Skip the parent's own actual_cost when it has child expenses
+      if (!parseQuoteRefFromNotes(item.notes) && parentIdsWithChildren.has(item.id)) return s;
+      return s + (item.actual_cost ?? 0);
+    }, 0);
+  }, [items]);
   const totalFunds = useMemo(() => incomes.reduce((s, i) => s + i.amount, 0), [incomes]);
   const cashBalance = totalFunds - spent;
   const remainingBudget = totalBudget - spent;
@@ -576,10 +589,13 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
                     const catQuoted = catItems.reduce((s, i) => s + (i.quoted_cost ?? 0), 0);
                   const isOpen = budgetExpandedCat === cat || searchQueryLower !== "";
 
-                  // Compute total paid for category including children
+                  // Compute total paid for category: use children's sum when they exist,
+                  // otherwise fall back to the item's own legacy actual_cost (never both)
                   const catActualWithChildren = catItems.reduce((s, i) => {
-                    const childrenSum = (childExpenseMap[i.id] || []).reduce((cs, c) => cs + (c.actual_cost ?? 0), 0);
-                    return s + (i.actual_cost ?? 0) + childrenSum;
+                    const itemChildren = childExpenseMap[i.id] || [];
+                    const childrenSum = itemChildren.reduce((cs, c) => cs + (c.actual_cost ?? 0), 0);
+                    const itemActual = itemChildren.length === 0 ? (i.actual_cost ?? 0) : 0;
+                    return s + itemActual + childrenSum;
                   }, 0);
 
                   return (
@@ -683,7 +699,7 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
                                         <Paperclip className="h-3.5 w-3.5" />
                                       </a>
                                     )}
-                                    {isCustomExpense && (
+                                    {(isCustomExpense || (isQuote && item.actual_cost !== null && children.length === 0)) && (
                                       <button
                                         onClick={() => setEditingItem(item)}
                                         className="p-1.5 rounded-lg border border-border bg-white hover:bg-gray-50 text-gray-500 transition-colors active:scale-95"
