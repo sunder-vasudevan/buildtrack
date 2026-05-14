@@ -17,11 +17,12 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   const [saving, setSaving] = useState(false);
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [phases, setPhases] = useState<Phase[]>([]);
-  const [newDeliverable, setNewDeliverable] = useState("");
+  const [selectedDeliverables, setSelectedDeliverables] = useState<string[]>([]);
+  const [customDeliverable, setCustomDeliverable] = useState("");
+  const [showCustomInput, setShowCustomInput] = useState(false);
   const [form, setForm] = useState({
     log_date: new Date().toISOString().split("T")[0],
     phase_id: "",
-    deliverable_name: "",
     description: "",
     weather: "Sunny",
     work_status: "In Progress",
@@ -39,8 +40,24 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   const selectedPhase = phases.find((p) => p.id === form.phase_id);
   const deliverableOptions = (selectedPhase?.deliverables ?? []).map((d) => typeof d === "string" ? { name: d } : d);
 
+  function toggleDeliverable(name: string) {
+    setSelectedDeliverables((prev) =>
+      prev.includes(name) ? prev.filter((d) => d !== name) : [...prev, name]
+    );
+  }
+
+  function addCustomDeliverable() {
+    const name = customDeliverable.trim();
+    if (!name) return;
+    if (!selectedDeliverables.includes(name)) {
+      setSelectedDeliverables((prev) => [...prev, name]);
+    }
+    setCustomDeliverable("");
+    setShowCustomInput(false);
+  }
+
   async function handleSave() {
-    if (!form.phase_id || !form.deliverable_name || !form.description) return;
+    if (!form.phase_id || selectedDeliverables.length === 0 || !form.description) return;
     setSaving(true);
     const { data: project } = await supabase.from("projects").select("id").single();
 
@@ -59,17 +76,19 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
     const labourTag = (form.category === "Labour" && form.no_of_labour) ? `[Labour: ${form.no_of_labour}]` : "";
     const fullDescription = `${categoryTag}${labourTag} ${form.description}`.trim();
 
-    await supabase.from("daily_logs").insert({
+    const rows = selectedDeliverables.map((deliverable_name) => ({
       project_id: project?.id,
       log_date: form.log_date,
       phase_id: form.phase_id || null,
-      deliverable_name: form.deliverable_name || null,
+      deliverable_name,
       description: fullDescription,
       weather: form.weather,
       work_status: form.work_status,
       issues: form.issues || null,
       photos: uploadedPhotos,
-    });
+    }));
+
+    await supabase.from("daily_logs").insert(rows);
 
     setSaving(false);
     onSaved();
@@ -153,55 +172,91 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs font-semibold text-gray-700 block mb-1">Phase *</label>
-          <select
-            value={form.phase_id}
-            onChange={(e) => setForm((p) => ({ ...p, phase_id: e.target.value, deliverable_name: "" }))}
-            className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-950 font-semibold focus:border-gray-500 focus:outline-none"
-          >
-            <option value="">Select phase...</option>
-            {phases.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div>
+        <label className="text-xs font-semibold text-gray-700 block mb-1">Phase *</label>
+        <select
+          value={form.phase_id}
+          onChange={(e) => {
+            setForm((p) => ({ ...p, phase_id: e.target.value }));
+            setSelectedDeliverables([]);
+            setShowCustomInput(false);
+            setCustomDeliverable("");
+          }}
+          className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-950 font-semibold focus:border-gray-500 focus:outline-none"
+        >
+          <option value="">Select phase...</option>
+          {phases.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+      </div>
 
+      {form.phase_id && (
         <div>
-          <label className="text-xs font-semibold text-gray-700 block mb-1">Deliverable *</label>
-          <select
-            value={form.deliverable_name === "" ? "" : deliverableOptions.some((d) => d.name === form.deliverable_name) ? form.deliverable_name : "__new__"}
-            onChange={(e) => {
-              const val = e.target.value;
-              if (val === "__new__") {
-                setNewDeliverable(" ");
-                setForm((p) => ({ ...p, deliverable_name: "" }));
-              } else {
-                setNewDeliverable("");
-                setForm((p) => ({ ...p, deliverable_name: val }));
-              }
-            }}
-            disabled={!form.phase_id}
-            className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-955 font-semibold focus:border-gray-500 focus:outline-none disabled:opacity-40"
-          >
-            <option value="">Select deliverable...</option>
-            {deliverableOptions.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
-            <option value="__new__">+ Add new deliverable...</option>
-          </select>
-          {newDeliverable !== "" && (
-            <input
-              type="text"
-              value={newDeliverable.trim()}
-              onChange={(e) => { setNewDeliverable(e.target.value); setForm((p) => ({ ...p, deliverable_name: e.target.value })); }}
-              className="w-full h-10 border border-border rounded-xl px-3 text-xs mt-2 focus:outline-none focus:border-gray-400 bg-white"
-              placeholder="Enter new deliverable name..."
-            />
+          <label className="text-xs font-semibold text-gray-700 block mb-1.5">
+            Deliverables * <span className="font-normal text-muted-foreground">(tap to select, multiple allowed)</span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {deliverableOptions.map((d) => {
+              const active = selectedDeliverables.includes(d.name);
+              return (
+                <button
+                  key={d.name}
+                  type="button"
+                  onClick={() => toggleDeliverable(d.name)}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
+                    active
+                      ? "bg-gray-900 text-white border-gray-900"
+                      : "bg-white border-border text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {active ? "✓ " : ""}{d.name}
+                </button>
+              );
+            })}
+            {!showCustomInput ? (
+              <button
+                type="button"
+                onClick={() => setShowCustomInput(true)}
+                className="px-3 py-1.5 rounded-xl border border-dashed border-gray-300 text-xs font-semibold text-gray-500 hover:bg-gray-50 transition-all"
+              >
+                + Custom
+              </button>
+            ) : (
+              <div className="flex gap-2 w-full mt-1">
+                <input
+                  type="text"
+                  value={customDeliverable}
+                  onChange={(e) => setCustomDeliverable(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") addCustomDeliverable(); if (e.key === "Escape") { setShowCustomInput(false); setCustomDeliverable(""); } }}
+                  className="flex-1 h-9 border border-border rounded-xl px-3 text-xs focus:outline-none focus:border-gray-400 bg-white"
+                  placeholder="Enter deliverable name..."
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={addCustomDeliverable}
+                  className="h-9 px-3 bg-gray-900 text-white rounded-xl text-xs font-semibold"
+                >
+                  Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowCustomInput(false); setCustomDeliverable(""); }}
+                  className="h-9 px-3 border border-border rounded-xl text-xs text-gray-600"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+          {selectedDeliverables.length > 1 && (
+            <p className="text-[11px] text-blue-600 font-semibold mt-1.5">
+              {selectedDeliverables.length} deliverables selected — {selectedDeliverables.length} log entries will be created
+            </p>
           )}
         </div>
-      </div>
+      )}
 
       <div>
         <label className="text-xs font-semibold text-gray-700 block mb-1">Work Description *</label>
@@ -228,7 +283,7 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
         <button onClick={onClose} className="flex-1 h-12 border border-border text-gray-900 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors">
           Cancel
         </button>
-        <button onClick={handleSave} disabled={saving || !form.phase_id || !form.deliverable_name || !form.description} className="flex-1 h-12 bg-gray-950 hover:bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-40 flex items-center justify-center gap-2 transition-colors">
+        <button onClick={handleSave} disabled={saving || !form.phase_id || selectedDeliverables.length === 0 || !form.description} className="flex-1 h-12 bg-gray-950 hover:bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-40 flex items-center justify-center gap-2 transition-colors">
           {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Save Log"}
         </button>
       </div>
