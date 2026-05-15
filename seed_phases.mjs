@@ -43,7 +43,7 @@ const data = [
     name: "MILESTONE: ROOF STRUCTURE",
     start_date: "2026-06-15",
     end_date: "2026-06-15",
-    deliverables: ["Centring formwork", "Concealed Electrical Conduit Laying in Slab", "Fan Hooks & Junction Box Placement", "RCC slab or pitched roof casting complete", "Slab Concrete Curing (14-21 Days)", "Formwork removal", "Building WEATHERPROOF"]
+    deliverables: ["Centring formwork", "Concealed Electrical Conduit Laying in Slab", "Fan Hooks & Junction Box Placement", "RCC slab or pitched roof casting complete", "Slab Concrete Curing (14-21 Days)", "Formwork removal", "Building WEATHERPROOF", "Terrace Waterproofing (Brick Bat Coba or Membrane)", "Terrace Screed & Slope Formation for Drainage"]
   },
   {
     phase_number: 4,
@@ -57,14 +57,14 @@ const data = [
     name: "Phase 3: MEP Rough-in",
     start_date: "2026-08-01",
     end_date: "2026-08-15",
-    deliverables: ["Electrical conduit & wiring (concealed)", "Plumbing rough-in", "Water supply entry", "Drainage lines", "Septic Tank / Sewage Treatment Plant (STP)", "Rainwater Harvesting Pit (RWH)", "AC Concealed Copper Piping"]
+    deliverables: ["Electrical conduit & wiring (concealed)", "Plumbing rough-in", "Water supply entry", "Drainage lines", "Septic Tank / Sewage Treatment Plant (STP)", "Rainwater Harvesting Pit (RWH)", "AC Concealed Copper Piping", "Internet & Data Cabling Conduits", "CCTV Camera Conduit & Junction Box Placement"]
   },
   {
     phase_number: 6,
     name: "Phase 4: Flooring & Fixtures",
     start_date: "2026-08-16",
     end_date: "2026-09-05",
-    deliverables: ["Flooring tiles laid", "Bathroom & kitchen tiles", "Kitchen Granite Counter Countertop Fabrication", "UPVC/Aluminium Window Glass Frame Installation", "Carpentry, Wardrobes & Woodwork", "Main Gates, Window Grilles & Security Balustrades", "Paint (interior & exterior)", "All fixtures installed"]
+    deliverables: ["Flooring tiles laid", "Bathroom & kitchen tiles", "Kitchen Granite Counter Countertop Fabrication", "UPVC/Aluminium Window Glass Frame Installation", "Carpentry, Wardrobes & Woodwork", "Main Gates, Window Grilles & Security Balustrades", "Paint (interior & exterior)", "All fixtures installed", "Sanitary Ware Installation (WCs, Wash Basins)", "Bathroom Fittings (Taps, Showers, Towel Rails)", "Geyser / Water Heater Installation"]
   },
   {
     phase_number: 7,
