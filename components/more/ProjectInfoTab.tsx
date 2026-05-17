@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { BudgetItem, DailyLog, Income, Phase, Project, Window, PlanDocument, Reminder } from "@/lib/types";
 import { formatINR, formatDate, daysLeft } from "@/lib/utils";
-import { Building2, Download, Loader2, Settings, ChevronDown, ChevronUp, Grid, FileText, PenSquare, Trash2, Search, Plus, BookOpen } from "lucide-react";
+import { Building2, Download, Loader2, Settings, ChevronDown, ChevronUp, Grid, FileText, PenSquare, Trash2, Search, Plus, BookOpen, SlidersHorizontal } from "lucide-react";
+import { ProjectPreferences, DEFAULT_PROJECT_PREFERENCES } from "@/lib/types";
 import { WindowsClient } from "@/components/tracker/WindowsTab";
 import { PlansTab } from "@/components/tracker/PlansTab";
 
@@ -68,8 +69,34 @@ export function ProjectInfoTab({
   const [loading, setLoading] = useState(false);
   const [windowsExpanded, setWindowsExpanded] = useState(false);
   const [plansExpanded, setPlansExpanded] = useState(false);
-  const [notesExpanded, setNotesExpanded] = useState(true); // default open for gorgeous workspace visibility!
+  const [notesExpanded, setNotesExpanded] = useState(true);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
+  const [prefsExpanded, setPrefsExpanded] = useState(false);
+  const [prefs, setPrefs] = useState<ProjectPreferences>(DEFAULT_PROJECT_PREFERENCES);
+  const [savingPrefs, setSavingPrefs] = useState(false);
+
+  useEffect(() => {
+    async function loadPrefs() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from("projects").select("preferences").eq("user_id", user.id).maybeSingle();
+      if (data?.preferences?.tabs) setPrefs(data.preferences as ProjectPreferences);
+    }
+    loadPrefs();
+  }, []);
+
+  async function savePrefs(updated: ProjectPreferences) {
+    setSavingPrefs(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) await supabase.from("projects").update({ preferences: updated }).eq("user_id", user.id);
+    setSavingPrefs(false);
+  }
+
+  function togglePref(section: "tabs" | "quickAdd", key: string) {
+    const updated = { ...prefs, [section]: { ...prefs[section], [key]: !prefs[section][key as keyof typeof prefs[typeof section]] } };
+    setPrefs(updated);
+    savePrefs(updated);
+  }
 
   // Notes state (stored inside reminders table with [Note] prefix)
   const [reminders, setReminders] = useState<Reminder[]>(initialReminders);
@@ -90,9 +117,11 @@ export function ProjectInfoTab({
         "postgres_changes",
         { event: "*", schema: "public", table: "reminders" },
         async () => {
+          const { data: { user } } = await supabase.auth.getUser();
           const { data } = await supabase
             .from("reminders")
             .select("*")
+            .eq("user_id", user!.id)
             .order("created_at", { ascending: false });
           if (data) {
             setReminders(data as Reminder[]);
@@ -240,12 +269,14 @@ export function ProjectInfoTab({
     if (!newNoteText.trim()) return;
 
     setSavingNote(true);
-    const { data: proj } = await supabase.from("projects").select("id").single();
-    
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: proj } = await supabase.from("projects").select("id").eq("user_id", user!.id).single();
+
     const { data, error } = await supabase
       .from("reminders")
       .insert({
         project_id: proj?.id,
+        user_id: user!.id,
         text: `[Note] ${newNoteText.trim()}`,
         done: false,
         due_date: null,
@@ -526,6 +557,66 @@ export function ProjectInfoTab({
                 ))}
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Display Preferences */}
+      <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+        <button onClick={() => setPrefsExpanded(!prefsExpanded)} className="w-full flex items-center justify-between p-4">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-4 w-4 text-violet-600" />
+            <span className="text-sm font-semibold text-gray-900">Display Preferences</span>
+            {savingPrefs && <Loader2 className="h-3 w-3 animate-spin text-gray-400" />}
+          </div>
+          {prefsExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        </button>
+        {prefsExpanded && (
+          <div className="border-t border-border p-4 space-y-4">
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Tabs</p>
+              <div className="space-y-2">
+                {([
+                  { key: "overview", label: "Overview" },
+                  { key: "tracker", label: "Tracker" },
+                  { key: "finances", label: "Finances" },
+                  { key: "more", label: "Project Info" },
+                ] as { key: keyof ProjectPreferences["tabs"]; label: string }[]).map(({ key, label }) => (
+                  <div key={key} className="flex items-center justify-between">
+                    <span className="text-sm text-gray-700">{label}</span>
+                    <button
+                      onClick={() => togglePref("tabs", key)}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${prefs.tabs[key] ? "bg-gray-900" : "bg-gray-200"}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${prefs.tabs[key] ? "translate-x-5" : "translate-x-0"}`} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Quick Add Options</p>
+              <div className="space-y-2">
+                {([
+                  { key: "log", label: "Log Work" },
+                  { key: "expense", label: "Add Expense" },
+                  { key: "funds", label: "Add Funds" },
+                  { key: "reminder", label: "Reminder" },
+                  { key: "wish", label: "Wish List" },
+                  { key: "note", label: "Note" },
+                ] as { key: keyof ProjectPreferences["quickAdd"]; label: string }[]).map(({ key, label }) => (
+                  <div key={key} className="flex items-center justify-between">
+                    <span className="text-sm text-gray-700">{label}</span>
+                    <button
+                      onClick={() => togglePref("quickAdd", key)}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${prefs.quickAdd[key] ? "bg-gray-900" : "bg-gray-200"}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${prefs.quickAdd[key] ? "translate-x-5" : "translate-x-0"}`} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>

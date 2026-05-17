@@ -56,9 +56,11 @@ export function ReminderWidget({ initialReminders }: { initialReminders: Reminde
 
   async function fetchCompletedReminders() {
     setIsLoadingCompleted(true);
+    const { data: { user } } = await supabase.auth.getUser();
     const { data } = await supabase
       .from("reminders")
       .select("*")
+      .eq("user_id", user!.id)
       .eq("done", true)
       .order("due_date", { ascending: false })
       .limit(15);
@@ -112,12 +114,14 @@ export function ReminderWidget({ initialReminders }: { initialReminders: Reminde
     if (!newText.trim()) return;
 
     setAddingInline(true);
-    const { data: project } = await supabase.from("projects").select("id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: project } = await supabase.from("projects").select("id").eq("user_id", user!.id).single();
 
     const { data, error } = await supabase
       .from("reminders")
       .insert({
         project_id: project?.id,
+        user_id: user!.id,
         text: newText.trim(),
         done: false,
         due_date: null,
@@ -142,9 +146,11 @@ export function ReminderWidget({ initialReminders }: { initialReminders: Reminde
         "postgres_changes",
         { event: "*", schema: "public", table: "reminders" },
         async () => {
+          const { data: { user } } = await supabase.auth.getUser();
           const { data: incomplete } = await supabase
             .from("reminders")
             .select("*")
+            .eq("user_id", user!.id)
             .eq("done", false)
             .order("due_date", { ascending: true });
           if (incomplete) {
@@ -354,9 +360,11 @@ export function PendingTasksWidget({ initialReminders }: { initialReminders: Rem
 
   async function fetchCompletedReminders() {
     setIsLoadingCompleted(true);
+    const { data: { user } } = await supabase.auth.getUser();
     const { data } = await supabase
       .from("reminders")
       .select("*")
+      .eq("user_id", user!.id)
       .eq("done", true)
       .order("due_date", { ascending: false })
       .limit(15);
@@ -410,12 +418,14 @@ export function PendingTasksWidget({ initialReminders }: { initialReminders: Rem
     if (!newText.trim()) return;
 
     setAddingInline(true);
-    const { data: project } = await supabase.from("projects").select("id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: project } = await supabase.from("projects").select("id").eq("user_id", user!.id).single();
 
     const { data, error } = await supabase
       .from("reminders")
       .insert({
         project_id: project?.id,
+        user_id: user!.id,
         text: `[Wish] ${newText.trim()}`,
         done: false,
         due_date: null,
@@ -440,9 +450,11 @@ export function PendingTasksWidget({ initialReminders }: { initialReminders: Rem
         "postgres_changes",
         { event: "*", schema: "public", table: "reminders" },
         async () => {
+          const { data: { user } } = await supabase.auth.getUser();
           const { data: incomplete } = await supabase
             .from("reminders")
             .select("*")
+            .eq("user_id", user!.id)
             .eq("done", false)
             .order("due_date", { ascending: true });
           if (incomplete) {

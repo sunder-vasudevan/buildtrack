@@ -7,15 +7,16 @@ import { LayoutDashboard, Wallet, Building2, Kanban, ChevronDown } from "lucide-
 import { cn } from "@/lib/utils";
 import { QuickAddModal } from "@/components/ui/QuickAddModal";
 import { supabase } from "@/lib/supabase";
+import { ProjectPreferences, DEFAULT_PROJECT_PREFERENCES } from "@/lib/types";
 
-const tabsLeft = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard, colorClass: "text-indigo-600", bgClass: "bg-indigo-50/80 border border-indigo-100/50" },
-  { href: "/tracker", label: "Tracker", icon: Kanban, colorClass: "text-amber-600", bgClass: "bg-amber-50/80 border border-amber-100/50" },
+const ALL_TABS_LEFT = [
+  { href: "/dashboard", label: "Overview", icon: LayoutDashboard, colorClass: "text-indigo-600", bgClass: "bg-indigo-50/80 border border-indigo-100/50", prefKey: "overview" as const },
+  { href: "/tracker", label: "Tracker", icon: Kanban, colorClass: "text-amber-600", bgClass: "bg-amber-50/80 border border-amber-100/50", prefKey: "tracker" as const },
 ];
 
-const tabsRight = [
-  { href: "/finances", label: "Finances", icon: Wallet, colorClass: "text-emerald-600", bgClass: "bg-emerald-50/80 border border-emerald-100/50" },
-  { href: "/more", label: "Project Info", icon: Building2, colorClass: "text-violet-600", bgClass: "bg-violet-50/80 border border-violet-100/50" },
+const ALL_TABS_RIGHT = [
+  { href: "/finances", label: "Finances", icon: Wallet, colorClass: "text-emerald-600", bgClass: "bg-emerald-50/80 border border-emerald-100/50", prefKey: "finances" as const },
+  { href: "/more", label: "Project Info", icon: Building2, colorClass: "text-violet-600", bgClass: "bg-violet-50/80 border border-violet-100/50", prefKey: "more" as const },
 ];
 
 function NavLink({ href, label, icon: Icon, active, badgeCount, colorClass, bgClass }: any) {
@@ -43,8 +44,25 @@ function NavLink({ href, label, icon: Icon, active, badgeCount, colorClass, bgCl
 
 export function BottomNav() {
   const pathname = usePathname();
+
+  if (pathname.startsWith("/auth") || pathname === "/setup") return null;
   const [reminderCount, setReminderCount] = useState(0);
   const [isHidden, setIsHidden] = useState(false);
+  const [prefs, setPrefs] = useState<ProjectPreferences>(DEFAULT_PROJECT_PREFERENCES);
+
+  useEffect(() => {
+    async function fetchPrefs() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("projects")
+        .select("preferences")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (data?.preferences?.tabs) setPrefs(data.preferences as ProjectPreferences);
+    }
+    fetchPrefs();
+  }, []);
 
   useEffect(() => {
     async function fetchCount() {
@@ -104,7 +122,7 @@ export function BottomNav() {
 
         <div className="flex items-center justify-around h-15 px-2">
           <div className="flex items-center justify-around flex-1">
-            {tabsLeft.map((tab) => (
+            {ALL_TABS_LEFT.filter((t) => prefs.tabs[t.prefKey]).map((tab) => (
               <NavLink
                 key={tab.href}
                 {...tab}
@@ -113,18 +131,18 @@ export function BottomNav() {
               />
             ))}
           </div>
-          
+
           {/* Center Quick Add Button */}
           <div className="shrink-0 px-1">
-            <QuickAddModal />
+            <QuickAddModal quickAddPrefs={prefs.quickAdd} />
           </div>
 
           <div className="flex items-center justify-around flex-1">
-            {tabsRight.map((tab) => (
-              <NavLink 
-                key={tab.href} 
-                {...tab} 
-                active={pathname.startsWith(tab.href)} 
+            {ALL_TABS_RIGHT.filter((t) => prefs.tabs[t.prefKey]).map((tab) => (
+              <NavLink
+                key={tab.href}
+                {...tab}
+                active={pathname.startsWith(tab.href)}
               />
             ))}
           </div>

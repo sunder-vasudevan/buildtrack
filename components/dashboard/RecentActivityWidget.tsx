@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { DailyLog, Phase } from "@/lib/types";
 import { formatDate, parseLogDescription } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
+import { uploadFile } from "@/lib/upload";
 import { Activity, ChevronDown, Calendar, X, PencilLine, Trash2, Upload, Loader2, Image as ImageIcon } from "lucide-react";
 
 interface RecentActivityWidgetProps {
@@ -76,13 +77,10 @@ export function RecentActivityWidget({ recentLogs, phases = [] }: RecentActivity
     const uploadedPhotos = [...existingPhotos];
 
     for (const file of photoFiles) {
-      const ext = file.name.split(".").pop();
-      const path = `logs/${form.log_date}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("buildtrack-photos").upload(path, file, { upsert: true });
-      if (!upErr) {
-        const { data: urlData } = supabase.storage.from("buildtrack-photos").getPublicUrl(path);
-        uploadedPhotos.push({ url: urlData.publicUrl, caption: "" });
-      }
+      try {
+        const url = await uploadFile(file);
+        uploadedPhotos.push({ url, caption: "" });
+      } catch {}
     }
 
     const categoryTag = form.category ? `[Category: ${form.category}]` : "";

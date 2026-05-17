@@ -42,9 +42,11 @@ export function TrackerClient({ phases, logs, initialReminders }: TrackerClientP
         "postgres_changes",
         { event: "*", schema: "public", table: "reminders" },
         async () => {
+          const { data: { user } } = await supabase.auth.getUser();
           const { data } = await supabase
             .from("reminders")
             .select("*")
+            .eq("user_id", user!.id)
             .order("created_at", { ascending: false });
           if (data) {
             setReminders(data as Reminder[]);
@@ -63,12 +65,14 @@ export function TrackerClient({ phases, logs, initialReminders }: TrackerClientP
     if (!newWish.trim()) return;
 
     setSavingWish(true);
-    const { data: project } = await supabase.from("projects").select("id").single();
-    
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: project } = await supabase.from("projects").select("id").eq("user_id", user!.id).single();
+
     const { data, error } = await supabase
       .from("reminders")
       .insert({
         project_id: project?.id,
+        user_id: user!.id,
         text: `[Wish] ${newWish.trim()}`,
         done: false,
         due_date: null,

@@ -5,6 +5,7 @@ import { X, Upload, Loader2, Search, ChevronDown } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { BudgetItem } from "@/lib/types";
 import { parseDeliverableFromNotes, cleanDeliverableNotes } from "@/lib/utils";
+import { uploadFile } from "@/lib/upload";
 
 const CATEGORIES = [
   "Civil Labour", "Steel & TMT", "Cement & Aggregates", "Bricks & Blocks",
@@ -47,9 +48,11 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
 
   useEffect(() => {
     async function loadBudgetItems() {
+      const { data: { user } } = await supabase.auth.getUser();
       const { data } = await supabase
         .from("budget_items")
         .select("*")
+        .eq("user_id", user!.id)
         .order("category")
         .order("item_name");
       if (data) {
@@ -67,8 +70,10 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
     }
     loadBudgetItems();
 
-    supabase.from("phases").select("id, name, deliverables").order("phase_number").then(({ data }) => {
-      if (data) setPhases(data);
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      supabase.from("phases").select("id, name, deliverables").eq("user_id", user!.id).order("phase_number").then(({ data }) => {
+        if (data) setPhases(data);
+      });
     });
   }, []);
 
@@ -149,19 +154,14 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
 
     // Upload receipt if provided
     if (receiptFile) {
-      const ext = receiptFile.name.split(".").pop();
-      const path = `receipts/${form.date}/${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from("buildtrack-photos")
-        .upload(path, receiptFile, { upsert: true });
-      if (!uploadError) {
-        const { data } = supabase.storage.from("buildtrack-photos").getPublicUrl(path);
-        receiptUrl = data.publicUrl;
-      }
+      try {
+        receiptUrl = await uploadFile(receiptFile);
+      } catch {}
     }
 
     // Get project id
-    const { data: project } = await supabase.from("projects").select("id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: project } = await supabase.from("projects").select("id").eq("user_id", user!.id).single();
     const projectId = project?.id;
 
     const targetId = prefillItem?.id || selectedBudgetItemId;
@@ -196,6 +196,7 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
 
       await supabase.from("budget_items").insert({
         project_id: projectId,
+        user_id: user!.id,
         item_name: form.item_name,
         category: form.category,
         actual_cost: Number(form.amount),

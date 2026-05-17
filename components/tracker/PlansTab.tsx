@@ -5,6 +5,7 @@ import { PlanDocument } from "@/lib/types";
 import { FileText, Download, Plus, Image as ImageIcon, X, Loader2, Upload } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
+import { uploadFile } from "@/lib/upload";
 
 const PLAN_CATEGORIES = ["Floor Plan", "Elevation", "Electrical", "Plumbing", "Structural", "Interior", "Landscape", "Other"];
 
@@ -25,27 +26,25 @@ export function PlansTab({ initialPlans }: { initialPlans: PlanDocument[] }) {
     setSaving(true);
     setError("");
 
-    const ext = file.name.split(".").pop();
-    const path = `plans/${Date.now()}.${ext}`;
-    const { error: uploadError } = await supabase.storage
-      .from("buildtrack-photos")
-      .upload(path, file, { upsert: true });
-
-    if (uploadError) {
+    let publicUrl: string;
+    try {
+      publicUrl = await uploadFile(file);
+    } catch {
       setError("Upload failed. Try again.");
       setSaving(false);
       return;
     }
 
-    const { data: urlData } = supabase.storage.from("buildtrack-photos").getPublicUrl(path);
-    const { data: project } = await supabase.from("projects").select("id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: project } = await supabase.from("projects").select("id").eq("user_id", user!.id).single();
 
     const { data, error: insertError } = await supabase
       .from("documents")
       .insert({
         project_id: project?.id,
+        user_id: user!.id,
         title: form.title,
-        url: urlData.publicUrl,
+        url: publicUrl,
         category: form.category || null,
       })
       .select()

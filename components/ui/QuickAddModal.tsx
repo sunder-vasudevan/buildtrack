@@ -5,6 +5,7 @@ import { Plus, X, PencilLine, Receipt, Landmark, Loader2, Upload, Bell, PenSquar
 import { useState, useEffect } from "react";
 import { ExpenseForm } from "@/components/finances/ExpenseForm";
 import { supabase } from "@/lib/supabase";
+import { uploadFile } from "@/lib/upload";
 
 type Screen = "menu" | "expense" | "log" | "funds" | "reminder" | "note" | "wish";
 
@@ -31,8 +32,10 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   });
 
   useEffect(() => {
-    supabase.from("phases").select("id, name, deliverables").order("phase_number").then(({ data }) => {
-      if (data) setPhases(data as Phase[]);
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      supabase.from("phases").select("id, name, deliverables").eq("user_id", user!.id).order("phase_number").then(({ data }) => {
+        if (data) setPhases(data as Phase[]);
+      });
     });
   }, []);
 
@@ -42,17 +45,15 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   async function handleSave() {
     if (!form.phase_id || !form.deliverable_name || !form.description) return;
     setSaving(true);
-    const { data: project } = await supabase.from("projects").select("id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: project } = await supabase.from("projects").select("id").eq("user_id", user!.id).single();
 
     const uploadedPhotos: { url: string; caption: string }[] = [];
     for (const file of photoFiles) {
-      const ext = file.name.split(".").pop();
-      const path = `logs/${form.log_date}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("buildtrack-photos").upload(path, file, { upsert: true });
-      if (!upErr) {
-        const { data: urlData } = supabase.storage.from("buildtrack-photos").getPublicUrl(path);
-        uploadedPhotos.push({ url: urlData.publicUrl, caption: "" });
-      }
+      try {
+        const url = await uploadFile(file);
+        uploadedPhotos.push({ url, caption: "" });
+      } catch {}
     }
 
     const categoryTag = form.category ? `[Category: ${form.category}]` : "";
@@ -61,6 +62,7 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
 
     await supabase.from("daily_logs").insert({
       project_id: project?.id,
+      user_id: user!.id,
       log_date: form.log_date,
       phase_id: form.phase_id || null,
       deliverable_name: form.deliverable_name || null,
@@ -250,10 +252,12 @@ function QuickFundsForm({ onClose, onSaved }: { onClose: () => void; onSaved: ()
     if (!form.source || !form.amount) { setError("Source and amount are required."); return; }
     setSaving(true);
     setError("");
-    const { data: project, error: projectErr } = await supabase.from("projects").select("id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: project, error: projectErr } = await supabase.from("projects").select("id").eq("user_id", user!.id).single();
     if (projectErr || !project?.id) { console.error("project fetch error:", projectErr); setError("Could not load project. Check Supabase connection."); setSaving(false); return; }
     const { error: insertError } = await supabase.from("income").insert({
       project_id: project?.id,
+      user_id: user!.id,
       source: form.source,
       amount: Number(form.amount),
       date_received: form.date_received,
@@ -342,9 +346,11 @@ function QuickNoteForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
     if (!text.trim()) { setError("Note text is required."); return; }
     setSaving(true);
     setError("");
-    const { data: project } = await supabase.from("projects").select("id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: project } = await supabase.from("projects").select("id").eq("user_id", user!.id).single();
     const { error: insertError } = await supabase.from("reminders").insert({
       project_id: project?.id,
+      user_id: user!.id,
       text: `[Note] ${text.trim()}`,
       done: false,
       due_date: null,
@@ -402,8 +408,10 @@ function QuickReminderForm({ onClose, onSaved, initialType = "reminder" }: { onC
 
   useEffect(() => {
     if (type === "wish") {
-      supabase.from("phases").select("id, name").order("phase_number").then(({ data }) => {
-        if (data) setPhases(data as Phase[]);
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        supabase.from("phases").select("id, name").eq("user_id", user!.id).order("phase_number").then(({ data }) => {
+          if (data) setPhases(data as Phase[]);
+        });
       });
     }
   }, [type]);
@@ -412,8 +420,9 @@ function QuickReminderForm({ onClose, onSaved, initialType = "reminder" }: { onC
     if (!form.text) { setError("Text is required."); return; }
     setSaving(true);
     setError("");
-    const { data: project } = await supabase.from("projects").select("id").single();
-    
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: project } = await supabase.from("projects").select("id").eq("user_id", user!.id).single();
+
     let textToSave = form.text.trim();
     if (type === "wish") {
       const selectedPhase = phases.find(p => p.id === form.phase_id);
@@ -428,6 +437,7 @@ function QuickReminderForm({ onClose, onSaved, initialType = "reminder" }: { onC
 
     const { error: insertError } = await supabase.from("reminders").insert({
       project_id: project?.id,
+      user_id: user!.id,
       text: textToSave,
       due_date: form.due_date || null,
       done: false,
@@ -511,9 +521,12 @@ function QuickReminderForm({ onClose, onSaved, initialType = "reminder" }: { onC
   );
 }
 
-export function QuickAddModal() {
+type QuickAddPrefs = { log: boolean; expense: boolean; funds: boolean; reminder: boolean; wish: boolean; note: boolean };
+
+export function QuickAddModal({ quickAddPrefs }: { quickAddPrefs?: QuickAddPrefs }) {
   const [open, setOpen] = useState(false);
   const [screen, setScreen] = useState<Screen>("menu");
+  const prefs = quickAddPrefs ?? { log: true, expense: true, funds: true, reminder: true, wish: true, note: true };
 
   function handleClose() {
     setOpen(false);
@@ -540,66 +553,42 @@ export function QuickAddModal() {
                 </Dialog.Description>
               </div>
               <div className="grid gap-3 py-2 max-h-[60vh] overflow-y-auto pr-1">
-                <button
-                  onClick={() => setScreen("log")}
-                  className="flex items-center gap-4 bg-blue-50/20 hover:bg-blue-50/60 p-4 rounded-xl border border-blue-100 text-left transition-colors"
-                >
-                  <div className="bg-blue-100 p-3 rounded-full"><PencilLine className="h-6 w-6 text-blue-700" /></div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900 text-base">Add Works Completed</h4>
-                    <p className="text-xs text-muted-foreground mt-0.5">Log daily progress with photos</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setScreen("expense")}
-                  className="flex items-center gap-4 bg-emerald-50/20 hover:bg-emerald-50/60 p-4 rounded-xl border border-emerald-100 text-left transition-colors"
-                >
-                  <div className="bg-emerald-100 p-3 rounded-full"><Receipt className="h-6 w-6 text-emerald-700" /></div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900 text-base">Add Expense / Receipt</h4>
-                    <p className="text-xs text-muted-foreground mt-0.5">Record a payment with optional receipt</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setScreen("funds")}
-                  className="flex items-center gap-4 bg-orange-50/20 hover:bg-orange-50/60 p-4 rounded-xl border border-orange-100 text-left transition-colors"
-                >
-                  <div className="bg-orange-100 p-3 rounded-full"><Landmark className="h-6 w-6 text-orange-700" /></div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900 text-base">Add Funds</h4>
-                    <p className="text-xs text-muted-foreground mt-0.5">Record capital received for the project</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setScreen("reminder")}
-                  className="flex items-center gap-4 bg-purple-50/20 hover:bg-purple-50/60 p-4 rounded-xl border border-purple-100 text-left transition-colors"
-                >
-                  <div className="bg-purple-100 p-3 rounded-full"><Bell className="h-6 w-6 text-purple-700" /></div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900 text-base">Reminder / Followup</h4>
-                    <p className="text-xs text-muted-foreground mt-0.5">Set a reminder or calendar followup task</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setScreen("wish")}
-                  className="flex items-center gap-4 bg-rose-50/20 hover:bg-rose-50/60 p-4 rounded-xl border border-rose-100 text-left transition-colors"
-                >
-                  <div className="bg-rose-100 p-3 rounded-full"><Sparkles className="h-6 w-6 text-rose-700" /></div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900 text-base">Wishlist / Pending Work</h4>
-                    <p className="text-xs text-muted-foreground mt-0.5">Add backlog items or project backlog desires</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setScreen("note")}
-                  className="flex items-center gap-4 bg-amber-50/20 hover:bg-amber-50/60 p-4 rounded-xl border border-amber-100 text-left transition-colors"
-                >
-                  <div className="bg-amber-100 p-3 rounded-full"><PenSquare className="h-6 w-6 text-amber-700" /></div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900 text-base">Project Jotting / Note</h4>
-                    <p className="text-xs text-muted-foreground mt-0.5">Quickly jot down design thoughts or notes</p>
-                  </div>
-                </button>
+                {prefs.log && (
+                  <button onClick={() => setScreen("log")} className="flex items-center gap-4 bg-blue-50/20 hover:bg-blue-50/60 p-4 rounded-xl border border-blue-100 text-left transition-colors">
+                    <div className="bg-blue-100 p-3 rounded-full"><PencilLine className="h-6 w-6 text-blue-700" /></div>
+                    <div><h4 className="font-semibold text-gray-900 text-base">Add Works Completed</h4><p className="text-xs text-muted-foreground mt-0.5">Log daily progress with photos</p></div>
+                  </button>
+                )}
+                {prefs.expense && (
+                  <button onClick={() => setScreen("expense")} className="flex items-center gap-4 bg-emerald-50/20 hover:bg-emerald-50/60 p-4 rounded-xl border border-emerald-100 text-left transition-colors">
+                    <div className="bg-emerald-100 p-3 rounded-full"><Receipt className="h-6 w-6 text-emerald-700" /></div>
+                    <div><h4 className="font-semibold text-gray-900 text-base">Add Expense / Receipt</h4><p className="text-xs text-muted-foreground mt-0.5">Record a payment with optional receipt</p></div>
+                  </button>
+                )}
+                {prefs.funds && (
+                  <button onClick={() => setScreen("funds")} className="flex items-center gap-4 bg-orange-50/20 hover:bg-orange-50/60 p-4 rounded-xl border border-orange-100 text-left transition-colors">
+                    <div className="bg-orange-100 p-3 rounded-full"><Landmark className="h-6 w-6 text-orange-700" /></div>
+                    <div><h4 className="font-semibold text-gray-900 text-base">Add Funds</h4><p className="text-xs text-muted-foreground mt-0.5">Record capital received for the project</p></div>
+                  </button>
+                )}
+                {prefs.reminder && (
+                  <button onClick={() => setScreen("reminder")} className="flex items-center gap-4 bg-purple-50/20 hover:bg-purple-50/60 p-4 rounded-xl border border-purple-100 text-left transition-colors">
+                    <div className="bg-purple-100 p-3 rounded-full"><Bell className="h-6 w-6 text-purple-700" /></div>
+                    <div><h4 className="font-semibold text-gray-900 text-base">Reminder / Followup</h4><p className="text-xs text-muted-foreground mt-0.5">Set a reminder or calendar followup task</p></div>
+                  </button>
+                )}
+                {prefs.wish && (
+                  <button onClick={() => setScreen("wish")} className="flex items-center gap-4 bg-rose-50/20 hover:bg-rose-50/60 p-4 rounded-xl border border-rose-100 text-left transition-colors">
+                    <div className="bg-rose-100 p-3 rounded-full"><Sparkles className="h-6 w-6 text-rose-700" /></div>
+                    <div><h4 className="font-semibold text-gray-900 text-base">Wishlist / Pending Work</h4><p className="text-xs text-muted-foreground mt-0.5">Add backlog items or project backlog desires</p></div>
+                  </button>
+                )}
+                {prefs.note && (
+                  <button onClick={() => setScreen("note")} className="flex items-center gap-4 bg-amber-50/20 hover:bg-amber-50/60 p-4 rounded-xl border border-amber-100 text-left transition-colors">
+                    <div className="bg-amber-100 p-3 rounded-full"><PenSquare className="h-6 w-6 text-amber-700" /></div>
+                    <div><h4 className="font-semibold text-gray-900 text-base">Project Jotting / Note</h4><p className="text-xs text-muted-foreground mt-0.5">Quickly jot down design thoughts or notes</p></div>
+                  </button>
+                )}
               </div>
               <Dialog.Close asChild>
                 <button className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100">

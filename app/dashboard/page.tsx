@@ -1,15 +1,21 @@
-import { supabase } from "@/lib/supabase";
+import { redirect } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { BudgetItem, DailyLog, Project, Income, Phase, Reminder } from "@/lib/types";
 import { DashboardClient } from "@/components/dashboard/DashboardClient";
 
 async function getData() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/auth/login");
+  const userId = user.id;
+
   const [projectRes, budgetRes, logsRes, incomeRes, phasesRes, remindersRes] = await Promise.all([
-    supabase.from("projects").select("*").single(),
-    supabase.from("budget_items").select("*").order("category"),
-    supabase.from("daily_logs").select("*").order("log_date", { ascending: false }).limit(3),
-    supabase.from("income").select("*").order("date_received", { ascending: false }),
-    supabase.from("phases").select("*").order("phase_number"),
-    supabase.from("reminders").select("*").eq("done", false).order("due_date", { ascending: true }),
+    supabase.from("projects").select("*").eq("user_id", userId).maybeSingle(),
+    supabase.from("budget_items").select("*").eq("user_id", userId).order("category"),
+    supabase.from("daily_logs").select("*").eq("user_id", userId).order("log_date", { ascending: false }).limit(3),
+    supabase.from("income").select("*").eq("user_id", userId).order("date_received", { ascending: false }),
+    supabase.from("phases").select("*").eq("user_id", userId).order("phase_number"),
+    supabase.from("reminders").select("*").eq("user_id", userId).eq("done", false).order("due_date", { ascending: true }),
   ]);
 
   if (projectRes.error) console.error("Error fetching project:", projectRes.error);

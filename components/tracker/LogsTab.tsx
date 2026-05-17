@@ -4,6 +4,7 @@ import { useState } from "react";
 import { DailyLog, Phase } from "@/lib/types";
 import { formatDate, parseLogDescription } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
+import { uploadFile } from "@/lib/upload";
 import { Plus, X, Image, Upload, Loader2, PencilLine, Trash2 } from "lucide-react";
 
 const WEATHER_OPTIONS = ["Sunny", "Cloudy", "Rainy", "Overcast", "Hot"];
@@ -80,9 +81,10 @@ export function LogsClient({
     setSaving(true);
 
     // Need project_id — fetch it
+    const { data: { user } } = await supabase.auth.getUser();
     let pid = projectId;
     if (!pid) {
-      const { data } = await supabase.from("projects").select("id").single();
+      const { data } = await supabase.from("projects").select("id").eq("user_id", user!.id).single();
       pid = data?.id ?? null;
     }
 
@@ -91,15 +93,12 @@ export function LogsClient({
     const existingPhotos = originalLog?.photos || [];
     const uploadedPhotos = [...existingPhotos];
 
-    // Upload photos to Supabase Storage
+    // Upload photos to B2
     for (const file of photoFiles) {
-      const ext = file.name.split(".").pop();
-      const path = `logs/${form.log_date}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("buildtrack-photos").upload(path, file, { upsert: true });
-      if (!upErr) {
-        const { data: urlData } = supabase.storage.from("buildtrack-photos").getPublicUrl(path);
-        uploadedPhotos.push({ url: urlData.publicUrl, caption: "" });
-      }
+      try {
+        const url = await uploadFile(file);
+        uploadedPhotos.push({ url, caption: "" });
+      } catch {}
     }
 
     const categoryTag = form.category ? `[Category: ${form.category}]` : "";
@@ -108,6 +107,7 @@ export function LogsClient({
 
     const payload = {
       project_id: pid,
+      user_id: user!.id,
       log_date: form.log_date,
       phase_id: form.phase_id || null,
       deliverable_name: form.deliverable_name || null,

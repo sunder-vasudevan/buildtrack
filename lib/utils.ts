@@ -16,11 +16,9 @@ export function formatINR(amount: number | null | undefined): string {
 
 export function formatDate(date: string | null | undefined): string {
   if (!date) return "—";
-  return new Date(date).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const [year, month, day] = date.slice(0, 10).split("-").map(Number);
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${day} ${months[month - 1]} ${year}`;
 }
 
 export function daysLeft(endDate: string): number {

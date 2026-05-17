@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { formatINR, daysLeft, formatDate, parseLogDescription } from "@/lib/utils";
 import { BudgetItem, DailyLog, Project, Income, Phase, Reminder } from "@/lib/types";
-import { CalendarDays, IndianRupee, X, TrendingUp, Landmark, ShieldAlert, BadgeCheck, FileText, Loader2, Edit3, Save, PencilLine, Trash2 } from "lucide-react";
+import { CalendarDays, IndianRupee, X, TrendingUp, Landmark, ShieldAlert, BadgeCheck, FileText, Loader2, Edit3, Save, PencilLine, Trash2, LogOut, HelpCircle } from "lucide-react";
 import { ReminderWidget, PendingTasksWidget } from "@/components/dashboard/ReminderWidget";
 import { RecentActivityWidget } from "@/components/dashboard/RecentActivityWidget";
 import { UpcomingDeliverablesWidget } from "@/components/dashboard/UpcomingDeliverablesWidget";
@@ -24,6 +24,7 @@ interface DashboardClientProps {
 export function DashboardClient({ initialData }: DashboardClientProps) {
   const { project, budgetItems, recentLogs, incomes, phases, reminders } = initialData;
   const [activeModal, setActiveModal] = useState<"budget" | "funds" | "spent" | "variance" | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Stateful copies for real-time responsiveness
   const [currentProject, setCurrentProject] = useState<Project | null>(project);
@@ -48,10 +49,16 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
   }, [currentProject]);
 
   useEffect(() => {
+    async function getUserId() {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user?.id ?? null;
+    }
+
     const budgetChannel = supabase
       .channel("dashboard_budget_items")
       .on("postgres_changes", { event: "*", schema: "public", table: "budget_items" }, async () => {
-        const { data } = await supabase.from("budget_items").select("*").order("category");
+        const uid = await getUserId(); if (!uid) return;
+        const { data } = await supabase.from("budget_items").select("*").eq("user_id", uid).order("category");
         if (data) setItems(data as BudgetItem[]);
       })
       .subscribe();
@@ -59,7 +66,8 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     const incomeChannel = supabase
       .channel("dashboard_income")
       .on("postgres_changes", { event: "*", schema: "public", table: "income" }, async () => {
-        const { data } = await supabase.from("income").select("*").order("date_received", { ascending: false });
+        const uid = await getUserId(); if (!uid) return;
+        const { data } = await supabase.from("income").select("*").eq("user_id", uid).order("date_received", { ascending: false });
         if (data) setAllIncomes(data as Income[]);
       })
       .subscribe();
@@ -67,7 +75,8 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     const logsChannel = supabase
       .channel("dashboard_logs")
       .on("postgres_changes", { event: "*", schema: "public", table: "daily_logs" }, async () => {
-        const { data } = await supabase.from("daily_logs").select("*").order("log_date", { ascending: false }).limit(3);
+        const uid = await getUserId(); if (!uid) return;
+        const { data } = await supabase.from("daily_logs").select("*").eq("user_id", uid).order("log_date", { ascending: false }).limit(3);
         if (data) setLogs(data as DailyLog[]);
       })
       .subscribe();
@@ -75,7 +84,8 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     const remindersChannel = supabase
       .channel("dashboard_reminders")
       .on("postgres_changes", { event: "*", schema: "public", table: "reminders" }, async () => {
-        const { data } = await supabase.from("reminders").select("*").eq("done", false).order("due_date", { ascending: true });
+        const uid = await getUserId(); if (!uid) return;
+        const { data } = await supabase.from("reminders").select("*").eq("user_id", uid).eq("done", false).order("due_date", { ascending: true });
         if (data) setAllReminders(data as Reminder[]);
       })
       .subscribe();
@@ -83,7 +93,8 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     const projectChannel = supabase
       .channel("dashboard_projects")
       .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, async () => {
-        const { data } = await supabase.from("projects").select("*").single();
+        const uid = await getUserId(); if (!uid) return;
+        const { data } = await supabase.from("projects").select("*").eq("user_id", uid).maybeSingle();
         if (data) setCurrentProject(data as Project);
       })
       .subscribe();
@@ -223,9 +234,19 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
       )}
       <div className="p-4 space-y-4">
       {/* Header */}
-      <div className="pt-4 pb-2">
-        <h1 className="text-xl font-bold text-gray-900">Vasudha</h1>
-        <p className="text-sm text-muted-foreground">Farmhouse — Hyderabad</p>
+      <div className="pt-4 pb-2 flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">{currentProject?.name ?? "BuildTrack"}</h1>
+          <p className="text-sm text-muted-foreground">{currentProject?.location ?? ""}</p>
+        </div>
+        <div className="flex items-center gap-2 mt-1">
+          <button onClick={() => setShowHelp(true)} className="text-gray-400 hover:text-gray-700 transition-colors" title="Help">
+            <HelpCircle className="h-4 w-4" />
+          </button>
+          <button onClick={async () => { await supabase.auth.signOut(); window.location.href = "/auth/login"; }} className="text-gray-400 hover:text-red-500 transition-colors" title="Sign out">
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Net Cash In Hand Banner (Health Indicator) */}
@@ -338,8 +359,68 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
 
       {/* Footer */}
       <div className="pt-8 pb-16 text-center shrink-0">
-        <p className="text-xs text-muted-foreground">v1.3.5 · 12 May 2026 · Built in Hyderabad with ❤️</p>
+        <p className="text-xs text-muted-foreground">v2.0.0 · 17 May 2026 · Built in Hyderabad with ❤️</p>
       </div>
+
+      {/* Help Modal */}
+      {showHelp && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center">
+          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
+            <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="h-5 w-5 text-gray-700" />
+                <h2 className="font-bold text-gray-900">Help Guide</h2>
+              </div>
+              <button onClick={() => setShowHelp(false)} className="p-2 text-muted-foreground"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="overflow-y-auto p-4 space-y-5 text-sm">
+              {[
+                { title: "Navigation", items: [
+                  { label: "Overview", desc: "Dashboard: budget summary, net cash balance, recent logs, reminders" },
+                  { label: "Tracker", desc: "Phases, daily logs, uploaded plans & specs" },
+                  { label: "Finances", desc: "Budget items + funds received" },
+                  { label: "Project Info", desc: "Project details, team, exports, preferences, backup" },
+                ]},
+                { title: "Quick Add (+ button)", items: [
+                  { label: "Log Work", desc: "Daily site progress with photos, phase & deliverable" },
+                  { label: "Add Expense", desc: "Record a payment against a budget item" },
+                  { label: "Add Funds", desc: "Record money received (loan, contribution, etc.)" },
+                  { label: "Reminder", desc: "Set a reminder with a due date" },
+                  { label: "Wish List", desc: "Add backlog items or future ideas" },
+                  { label: "Note", desc: "Quick freeform note" },
+                ]},
+                { title: "Phases & Deliverables", items: [
+                  { label: "Phases", desc: "Main build stages (Foundation, Walls, Finishes…)" },
+                  { label: "Deliverables", desc: "Specific tasks within each phase — turns green when complete, red if overdue" },
+                ]},
+                { title: "Finances", items: [
+                  { label: "Budget", desc: "All items by category — quoted vs actual cost" },
+                  { label: "Funds", desc: "All capital received — source, amount, date" },
+                  { label: "Net Cash Balance", desc: "Total funds received − total expenses paid" },
+                ]},
+                { title: "Troubleshooting", items: [
+                  { label: "Data not showing", desc: "Refresh the page" },
+                  { label: "Photos not uploading", desc: "Check internet connection; max 10MB" },
+                  { label: "Can't log in", desc: "Check your email and password" },
+                ]},
+              ].map(({ title, items }) => (
+                <div key={title}>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">{title}</p>
+                  <div className="space-y-2">
+                    {items.map(({ label, desc }) => (
+                      <div key={label} className="bg-gray-50 rounded-lg px-3 py-2">
+                        <p className="font-semibold text-gray-800 text-xs">{label}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <p className="text-xs text-center text-gray-400 pb-4">v2.0.0 · buildtrackapp.vercel.app</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ================================= DETAIL MODALS ================================= */}
 

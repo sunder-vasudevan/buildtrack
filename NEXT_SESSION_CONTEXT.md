@@ -1,41 +1,56 @@
-# Next Session Context — BuildTrack (Vasudha)
-**Created:** 2026-05-11 22:56 IST
+# Next Session Context — BuildTrack
+**Created:** 2026-05-17 21:16 IST
 
 ## Completed this session
-- Wired all UI shells: Add Funds, Plans upload, Log photos, Add Worker, Expense form
-- QuickAdd FAB: all 3 actions enabled (Works / Expense / Funds)
-- Deliverables migrated from TEXT[] to JSONB with planned_start, planned_due, actual_due
-- Log Work form: phase + deliverable dropdowns + add-new-deliverable inline
-- Phase actual_start_date = earliest deliverable planned_start (auto on save)
-- Phase actual_end_date = latest deliverable planned_due (auto on save)
-- Storage RLS fixed (missing SELECT + DELETE policies)
-- Budget export CSV (expenses + income)
-- Funds tab renamed from Income throughout
+- Multi-user auth (email + password, open self-signup)
+- Supabase RLS on all 9 tables
+- 4-step setup wizard (/setup)
+- Backblaze B2 storage replacing Supabase Storage
+- Display Preferences in More → Project Info (tabs + QuickAdd toggles, auto-saves)
+- BottomNav hidden on /auth/* and /setup
+- Sign-out + Help (?) icons in dashboard header
+- Help modal with full guide
+- Admin: Users tab, /api/admin/users, /api/invite removed (open signup)
+- Finances + Tracker pages fixed to use createSupabaseServerClient
+- Dashboard realtime subscriptions fixed with user_id filters
+- formatDate: switched to deterministic format (no SSR hydration mismatch)
+- v2.0.0 deployed to buildtrackapp.vercel.app
 
 ## Immediate verify at session start
-- Confirm photo upload works (storage RLS was fixed this session — test on phone)
-- Confirm plan upload works (same fix)
-- Confirm "Add Funds" via QuickAdd saves correctly to income table
+- Dashboard loads without crashing
+- Finances shows budget items + funds
+- Tracker shows phases + logs
+- Sign-out works from dashboard header
+- Help modal opens
+- Display Preferences toggles save and reflect in nav
 
-## Next tasks (parked)
-1. **New deliverable write-back** — when user types a new deliverable name in Log Work form, optionally add it to phases.deliverables JSONB so it appears in future dropdowns
-2. **VendorsTab** — wire into nav (More page has space or add to nav)
-3. **StatusBadge** — move out of QuickAddModal.tsx to own file (cosmetic)
+## Known issues / debt
+- BottomNav prefs update requires page reload (not instant after toggle in Project Info)
+- Vasudha's old photo URLs still point to Supabase Storage (pre-B2 uploads not migrated)
+- VendorsTab exists in codebase but unreachable from nav
+
+## Next tasks (confirm at session start)
+- Make BottomNav update instantly when prefs change
+- Migrate old Supabase Storage photo URLs to B2
+- TEST_REPORT.md manual tests still pending (photo upload, CSV export)
 
 ## Cold Start Checklist
 1. Read this file top to bottom
 2. Read ~/.claude/projects/-Users-sunnyhayes-Daytona/memory/MEMORY.md
-3. Read ~/.claude/projects/-Users-sunnyhayes-Daytona/memory/project_buildtrack_2026-05-11.md
-4. Check live URL: https://vasudha-track.vercel.app
+3. Read global CLAUDE.md
+4. Check Helm parking for BuildTrack
+5. Verify buildtrackapp.vercel.app loads correctly before any work
 
 ## Credentials
-- Supabase DB: `postgresql://postgres@db.djbvntsnpqlxcetdoofu.supabase.co:5432/postgres` password `@Mother1603`
-- Vercel: `vercel --prod` then alias to vasudha-track.vercel.app
+- Supabase project: djbvntsnpqlxcetdoofu
+- B2: bucket=buildtrack-files, endpoint=s3.eu-central-003.backblazeb2.com, keyID=fa54df295099
+- B2 app key: in Vercel env only (B2_APP_KEY)
+- Supabase service role key: in Vercel env (SUPABASE_SERVICE_ROLE_KEY)
+- Admin: sunder.v@outlook.com, UUID: ab149df2-75bc-4d76-bd18-b357bbf6da36
 
 ## Deploy commands
 ```bash
 cd ~/Daytona/buildtrack
-npm run build
 vercel --prod
-vercel alias set <deployment-url> vasudha-track.vercel.app
+vercel alias set <deployment-url> buildtrackapp.vercel.app
 ```

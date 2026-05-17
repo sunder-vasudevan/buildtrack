@@ -1,55 +1,55 @@
-# BuildTrack (Vasudha) — Session Notes
+# BuildTrack — Session Notes
 
-> Mobile-first farmhouse construction tracker — real-time budget, phases, deliverables, daily logs, funds.
+> Multi-user mobile-first construction tracker — auth, isolated projects, B2 storage, setup wizard.
 
 ## Current State
-**Version:** v0.4.0
-**Live:** https://vasudha-track.vercel.app
-**Repo:** https://github.com/sunder-vasudevan/buildtrack (private)
+**Version:** v2.0.0
+**Live:** https://buildtrackapp.vercel.app
+**Legacy:** https://vasudha-track.vercel.app (same codebase, no auth, Vasudha's alias)
 **Local:** ~/Daytona/buildtrack
-**Supabase:** djbvntsnpqlxcetdoofu (Singapore, port 5432)
+**Supabase:** djbvntsnpqlxcetdoofu (Singapore)
 
 ## Stack
 | Layer | Choice |
 |-------|--------|
 | Frontend | Next.js 16 (App Router) + TypeScript + Tailwind CSS |
-| Components | Recharts (budget chart), Lucide icons, Radix UI (Dialog, Tabs) |
-| Database | Supabase PostgreSQL |
-| Storage | Supabase Storage (bucket: buildtrack-photos, public) |
-| Hosting | Vercel (aliased: vasudha-track.vercel.app) |
-| Auth | None (personal app) |
+| Auth | Supabase email + password |
+| Database | Supabase PostgreSQL + RLS |
+| Storage | Backblaze B2 (buildtrack-files, eu-central-003) |
+| Hosting | Vercel (buildtrackapp.vercel.app) |
+| Session | @supabase/ssr + proxy.ts |
 
 ## Architecture
+- Auth: /auth/login → / → /dashboard or /setup
 - Nav: Overview | Tracker | [FAB +] | Finances | More
 - Tracker: Phases / Logs / Plans tabs
 - Finances: Budget / Funds tabs
-- More: Project Info / Team / Windows tabs
+- More: Project Info (+ Display Preferences) / Backup / Users (admin only)
+- All data isolated by RLS: user_id = auth.uid()
 
-## DB Tables (10)
-projects, vendors, phases, windows, budget_items, daily_logs, payments, income, workers, documents
+## DB Tables (10 + auth)
+projects (+ user_id, preferences JSONB, location), phases, budget_items, daily_logs, payments, income, workers, documents, reminders, windows
 
 ## Key Schema Notes
 - phases.deliverables = JSONB: [{name, planned_start, planned_due, actual_due}]
-- daily_logs.deliverable_name TEXT — links log to deliverable by name
-- daily_logs.photos JSONB: [{url, caption}]
-- Storage RLS: INSERT/SELECT/UPDATE/DELETE on bucket_id = 'buildtrack-photos' for {public}
-- Phase actual_start_date = earliest deliverable planned_start on save
-- Phase actual_end_date = latest deliverable planned_due on save
+- projects.preferences JSONB: {tabs: {overview,tracker,finances,more}, quickAdd: {log,expense,funds,reminder,wish,note}}
+- All tables: user_id UUID, RLS enabled
+- B2 uploads: server-side presigned PUT via /api/upload, key = {user_id}/{timestamp}-{filename}
+- Admin email: sunder.v@outlook.com (hardcoded in API routes + More page)
 
-## What's Built (v0.4.0)
-- All pages + nav (Overview, Tracker, Finances, More)
-- QuickAdd FAB — all 3 actions wired (Works / Expense / Funds)
-- Expense form — new item or update existing budget item + receipt upload
-- Add Funds form — source, amount, date, notes → income table
-- Log Work form — phase + deliverable dropdown (+ add new inline), photos, weather, status
-- Plans upload — file → Supabase Storage → documents table
-- Add Worker form (More → Team)
-- Budget export CSV (expenses + income in one file)
-- Deliverable dates: planned_start (editable), planned_due (editable), actual_due (editable)
-- Phase actual dates auto-derived from deliverable dates on save
-- Deliverable status: green tick when actual_due set, red circle if overdue
+## What's Built (v2.0.0)
+- Multi-user auth: email + password, open self-signup
+- Setup wizard: 4 steps (project → phases → preferences → confirm)
+- RLS on all 9 tables
+- Backblaze B2 storage (replaces Supabase Storage)
+- Display Preferences in More → Project Info (tabs + QuickAdd toggles)
+- Help modal in dashboard header (? icon)
+- Sign-out icon in dashboard header
+- Admin: Users tab (see all signups), /api/admin/users, /api/invite
+- BottomNav hidden on /auth/* and /setup
 
 ## Open / Parked
 - New deliverable names typed in log form not written back to phases.deliverables
-- StatusBadge defined inside QuickAddModal.tsx (cosmetic, low priority)
 - VendorsTab exists but unreachable from nav
+- Vasudha's existing photo URLs still point to Supabase Storage (old uploads not migrated to B2)
+- BottomNav prefs update requires page reload (not instant)

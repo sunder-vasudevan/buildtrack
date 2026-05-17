@@ -22,13 +22,15 @@ export function TeamTab({ initialWorkers }: { initialWorkers: Worker[] }) {
     setSaving(true);
     setError("");
 
-    const { data: project } = await supabase.from("projects").select("id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: project } = await supabase.from("projects").select("id").eq("user_id", user!.id).single();
     const skills = form.skills ? form.skills.split(",").map((s) => s.trim()).filter(Boolean) : [];
 
     const { data, error: insertError } = await supabase
       .from("workers")
       .insert({
         project_id: project?.id,
+        user_id: user!.id,
         name: form.name,
         role: form.role || null,
         phone: form.phone || null,

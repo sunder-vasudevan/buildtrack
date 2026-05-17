@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Phase, PhaseStatus } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
+import { uploadFile } from "@/lib/upload";
 import { ChevronDown, ChevronUp, CheckCircle2, Circle, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -31,23 +32,7 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
   useEffect(() => {
     if (!expanded) return;
     
-    async function loadPhotos() {
-      const { data } = await supabase.storage.from("buildtrack-photos").list(`deliverables/${expanded}`);
-      if (data) {
-        const newPhotos = { ...photos };
-        data.forEach(file => {
-          // File format: index_filename.jpg
-          const match = file.name.match(/^(\d+)_/);
-          if (match) {
-            const index = match[1];
-            const { data: urlData } = supabase.storage.from("buildtrack-photos").getPublicUrl(`deliverables/${expanded}/${file.name}`);
-            newPhotos[`${expanded}_${index}`] = urlData.publicUrl;
-          }
-        });
-        setPhotos(newPhotos);
-      }
-    }
-    loadPhotos();
+    // Photos are stored as URLs in phase deliverables — no storage listing needed
   }, [expanded]);
 
   async function savePhase(id: string) {
@@ -99,13 +84,11 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
     const fileName = `${index}_${Date.now()}.${fileExt}`;
     const filePath = `deliverables/${phaseId}/${fileName}`;
 
-    const { error } = await supabase.storage.from("buildtrack-photos").upload(filePath, file, { upsert: true });
-    
-    if (!error) {
-      const { data: urlData } = supabase.storage.from("buildtrack-photos").getPublicUrl(filePath);
-      setPhotos(prev => ({ ...prev, [targetKey]: urlData.publicUrl }));
-    } else {
-      alert("Error uploading photo: " + error.message);
+    try {
+      const url = await uploadFile(file);
+      setPhotos(prev => ({ ...prev, [targetKey]: url }));
+    } catch {
+      alert("Error uploading photo. Please try again.");
     }
     
     setUploading(null);

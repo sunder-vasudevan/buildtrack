@@ -28,11 +28,13 @@ export function IncomeTab({ initialIncome }: { initialIncome: Income[] }) {
     setSaving(true);
     setError("");
 
-    const { data: project } = await supabase.from("projects").select("id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: project } = await supabase.from("projects").select("id").eq("user_id", user!.id).single();
     const { data, error: insertError } = await supabase
       .from("income")
       .insert({
         project_id: project?.id,
+        user_id: user!.id,
         source: form.source,
         amount: Number(form.amount),
         date_received: form.date_received,

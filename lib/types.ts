@@ -1,3 +1,13 @@
+export interface ProjectPreferences {
+  tabs: { overview: boolean; tracker: boolean; finances: boolean; more: boolean };
+  quickAdd: { log: boolean; expense: boolean; funds: boolean; reminder: boolean; wish: boolean; note: boolean };
+}
+
+export const DEFAULT_PROJECT_PREFERENCES: ProjectPreferences = {
+  tabs: { overview: true, tracker: true, finances: true, more: true },
+  quickAdd: { log: true, expense: true, funds: true, reminder: true, wish: true, note: true },
+};
+
 export interface Project {
   id: string;
   name: string;
@@ -9,6 +19,8 @@ export interface Project {
   end_date: string;
   location: string | null;
   status: string;
+  user_id: string | null;
+  preferences: ProjectPreferences | null;
   created_at: string;
   updated_at: string;
 }

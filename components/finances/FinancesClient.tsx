@@ -98,7 +98,8 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
     const budgetChannel = supabase
       .channel("finances_budget_items")
       .on("postgres_changes", { event: "*", schema: "public", table: "budget_items" }, async () => {
-        const { data } = await supabase.from("budget_items").select("*").order("category");
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data } = await supabase.from("budget_items").select("*").eq("user_id", user!.id).order("category");
         if (data) setItems(data as BudgetItem[]);
       })
       .subscribe();
@@ -106,7 +107,8 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
     const incomeChannel = supabase
       .channel("finances_income")
       .on("postgres_changes", { event: "*", schema: "public", table: "income" }, async () => {
-        const { data } = await supabase.from("income").select("*").order("date_received", { ascending: false });
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data } = await supabase.from("income").select("*").eq("user_id", user!.id).order("date_received", { ascending: false });
         if (data) setIncomes(data as Income[]);
       })
       .subscribe();
@@ -276,11 +278,13 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
     setSavingFunds(true);
     setFundsError("");
 
-    const { data: project } = await supabase.from("projects").select("id").single();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: project } = await supabase.from("projects").select("id").eq("user_id", user!.id).single();
     const { data, error: insertError } = await supabase
       .from("income")
       .insert({
         project_id: project?.id,
+        user_id: user!.id,
         source: fundsForm.source,
         amount: Number(fundsForm.amount),
         date_received: fundsForm.date_received,
@@ -327,7 +331,8 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
           .eq("id", item.id);
         if (error) throw error;
 
-        const { data } = await supabase.from("budget_items").select("*").order("category");
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data } = await supabase.from("budget_items").select("*").eq("user_id", user!.id).order("category");
         if (data) setItems(data as BudgetItem[]);
       }
     } catch (err) {
@@ -358,7 +363,8 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
           prefillItem={editingItem}
           onClose={() => setEditingItem(null)}
           onSaved={async () => {
-            const { data } = await supabase.from("budget_items").select("*").order("category");
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data } = await supabase.from("budget_items").select("*").eq("user_id", user!.id).order("category");
             if (data) setItems(data as BudgetItem[]);
             setEditingItem(null);
           }}
