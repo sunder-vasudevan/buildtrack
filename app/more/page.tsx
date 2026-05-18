@@ -23,6 +23,11 @@ export default function MorePage() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    // Check session synchronously first — avoids tab bar flash
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email === ADMIN_EMAIL) setIsAdmin(true);
+    });
+
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -30,7 +35,7 @@ export default function MorePage() {
       setIsAdmin(user.email === ADMIN_EMAIL);
 
       const [projectRes, windowsRes, documentsRes, remindersRes] = await Promise.all([
-        supabase.from("projects").select("*").eq("user_id", user.id).single(),
+        supabase.from("projects").select("*").eq("user_id", user.id).maybeSingle(),
         supabase.from("windows").select("*").order("window_id"),
         supabase.from("documents").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
         supabase.from("reminders").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
@@ -91,7 +96,7 @@ export default function MorePage() {
           >
             <LogOut className="h-4 w-4" /> Sign out
           </button>
-          <p className="text-xs text-muted-foreground">v1.0.0 · 17 May 2026 · Built in Hyderabad with ❤️</p>
+          <p className="text-xs text-muted-foreground">v2.0.0 · 17 May 2026 · Built in Hyderabad with ❤️</p>
         </div>
       </div>
     </div>

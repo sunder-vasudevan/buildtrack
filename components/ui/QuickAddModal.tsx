@@ -73,6 +73,20 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
       photos: uploadedPhotos,
     });
 
+    // If logged as Completed, mark the deliverable done in Tracker
+    if (form.work_status === "Completed" && form.phase_id && form.deliverable_name) {
+      const { data: phase } = await supabase.from("phases").select("id, deliverables").eq("id", form.phase_id).single();
+      if (phase?.deliverables) {
+        const deliverables = phase.deliverables as any[];
+        const updated = deliverables.map((d: any) =>
+          (typeof d === "string" ? d === form.deliverable_name : d.name === form.deliverable_name)
+            ? { ...(typeof d === "string" ? { name: d } : d), status: "Completed" }
+            : d
+        );
+        await supabase.from("phases").update({ deliverables: updated }).eq("id", form.phase_id);
+      }
+    }
+
     setSaving(false);
     onSaved();
     onClose();
@@ -521,12 +535,236 @@ function QuickReminderForm({ onClose, onSaved, initialType = "reminder" }: { onC
   );
 }
 
+type BudgetItem = { id: string; item_name: string; category: string; actual_cost: number | null; quoted_cost: number | null };
+type SimplePhase = { id: string; name: string };
+const EXPENSE_CATEGORIES = ["Labour", "Material", "Equipment", "Professional Fees", "Permits & Legal", "Misc"] as const;
+
+function QuickExpenseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [mode, setMode] = useState<"existing" | "new">("existing");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
+  const [phases, setPhases] = useState<SimplePhase[]>([]);
+  const [search, setSearch] = useState("");
+  const [selectedId, setSelectedId] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+
+  const [form, setForm] = useState({
+    amount: "",
+    date: new Date().toISOString().split("T")[0],
+    note: "",
+    item_name: "",
+    category: "Labour" as typeof EXPENSE_CATEGORIES[number],
+    phase_id: "",
+  });
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase.from("budget_items").select("id, item_name, category, actual_cost, quoted_cost")
+        .eq("user_id", user.id).order("category")
+        .then(({ data }) => { if (data) setBudgetItems(data as BudgetItem[]); });
+      supabase.from("phases").select("id, name").eq("user_id", user.id).order("phase_number")
+        .then(({ data }) => { if (data) setPhases(data as SimplePhase[]); });
+    });
+  }, []);
+
+  const filtered = budgetItems.filter((b) =>
+    b.item_name.toLowerCase().includes(search.toLowerCase()) ||
+    b.category.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const grouped = filtered.reduce<Record<string, BudgetItem[]>>((acc, item) => {
+    (acc[item.category] = acc[item.category] ?? []).push(item);
+    return acc;
+  }, {});
+
+  const selectedItem = budgetItems.find((b) => b.id === selectedId);
+
+  async function handleSave() {
+    if (!form.amount) { setError("Amount is required."); return; }
+    if (mode === "existing" && !selectedId) { setError("Select a budget item."); return; }
+    if (mode === "new" && !form.item_name) { setError("Item name is required."); return; }
+    setSaving(true);
+    setError("");
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: project } = await supabase.from("projects").select("id").eq("user_id", user!.id).single();
+
+    let receiptUrl: string | null = null;
+    if (receiptFile) {
+      try { receiptUrl = await uploadFile(receiptFile); } catch {}
+    }
+
+    if (mode === "existing") {
+      const { error: e } = await supabase.from("budget_items").update({
+        actual_cost: Number(form.amount),
+        payment_date: form.date,
+        notes: form.note || null,
+        ...(receiptUrl ? { receipt_url: receiptUrl } : {}),
+      }).eq("id", selectedId);
+      if (e) { setError(`Failed to save: ${e.message}`); setSaving(false); return; }
+    } else {
+      const { error: e } = await supabase.from("budget_items").insert({
+        item_name: form.item_name,
+        category: form.category,
+        phase_id: form.phase_id || null,
+        actual_cost: Number(form.amount),
+        payment_date: form.date,
+        notes: form.note || null,
+        receipt_url: receiptUrl,
+        user_id: user!.id,
+        project_id: project?.id,
+        status: "Paid",
+      });
+      if (e) { setError(`Failed to save: ${e.message}`); setSaving(false); return; }
+    }
+
+    setSaving(false);
+    onSaved();
+    onClose();
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="pb-3 border-b border-border flex items-center justify-between">
+        <h2 className="font-bold text-gray-900 text-lg">Add Expense</h2>
+        <button onClick={onClose} className="p-2 text-muted-foreground hover:bg-gray-100 rounded-full transition-colors"><X className="h-4 w-4" /></button>
+      </div>
+
+      {/* Mode toggle */}
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+        <button
+          onClick={() => setMode("existing")}
+          className={`flex-1 h-8 rounded-lg text-xs font-semibold transition-colors ${mode === "existing" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+        >
+          Existing item
+        </button>
+        <button
+          onClick={() => setMode("new")}
+          className={`flex-1 h-8 rounded-lg text-xs font-semibold transition-colors ${mode === "new" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+        >
+          New item
+        </button>
+      </div>
+
+      {error && <p className="text-sm font-semibold text-red-600 bg-red-50 rounded-xl p-3 border border-red-200">{error}</p>}
+
+      {mode === "existing" ? (
+        <div>
+          <label className="text-xs font-semibold text-gray-700 block mb-1">Budget Item *</label>
+          <div className="relative">
+            <input
+              type="text"
+              value={selectedItem ? selectedItem.item_name : search}
+              onChange={(e) => { setSearch(e.target.value); setSelectedId(""); setShowDropdown(true); }}
+              onFocus={() => setShowDropdown(true)}
+              placeholder="Search budget items..."
+              className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-900 font-semibold focus:border-gray-500 focus:outline-none"
+            />
+            {showDropdown && (
+              <div className="absolute z-10 top-12 left-0 right-0 bg-white border border-border rounded-xl shadow-lg max-h-52 overflow-y-auto">
+                {Object.entries(grouped).map(([cat, items]) => (
+                  <div key={cat}>
+                    <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wide bg-gray-50 sticky top-0">{cat}</div>
+                    {items.map((item) => (
+                      <button key={item.id} className="w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 transition-colors flex justify-between items-center"
+                        onClick={() => { setSelectedId(item.id); setSearch(item.item_name); setShowDropdown(false); }}>
+                        <span className="font-semibold text-gray-900">{item.item_name}</span>
+                        {item.quoted_cost && <span className="text-gray-400 text-[10px]">₹{item.quoted_cost.toLocaleString()}</span>}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+                {filtered.length === 0 && <p className="px-3 py-3 text-xs text-gray-400">No items found</p>}
+                <button className="w-full text-left px-3 py-2.5 text-xs text-emerald-700 font-semibold border-t border-border hover:bg-emerald-50 transition-colors"
+                  onClick={() => { setMode("new"); setShowDropdown(false); setSearch(""); }}>
+                  + Add new item
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">Item Name *</label>
+            <input type="text" value={form.item_name} onChange={(e) => setForm((p) => ({ ...p, item_name: e.target.value }))}
+              className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-900 font-semibold focus:border-gray-500 focus:outline-none"
+              placeholder="e.g. Steel reinforcement bars" autoFocus />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Category *</label>
+              <select value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value as typeof EXPENSE_CATEGORIES[number] }))}
+                className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-900 font-semibold focus:border-gray-500 focus:outline-none">
+                {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Phase (optional)</label>
+              <select value={form.phase_id} onChange={(e) => setForm((p) => ({ ...p, phase_id: e.target.value }))}
+                className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-900 font-semibold focus:border-gray-500 focus:outline-none">
+                <option value="">No phase</option>
+                {phases.map((ph) => <option key={ph.id} value={ph.id}>{ph.name}</option>)}
+              </select>
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-semibold text-gray-700 block mb-1">Amount (₹) *</label>
+          <input type="number" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
+            className="w-full h-11 border border-border rounded-xl px-3 text-xs font-sans font-bold bg-white text-gray-900 focus:border-gray-500 focus:outline-none"
+            placeholder="0" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-700 block mb-1">Date</label>
+          <input type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
+            className="w-full h-11 border border-border rounded-xl px-3 text-xs font-sans font-semibold bg-white text-gray-900 focus:border-gray-500 focus:outline-none" />
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold text-gray-700 block mb-1">Note (optional)</label>
+        <input type="text" value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))}
+          className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-900 font-medium focus:border-gray-500 focus:outline-none"
+          placeholder="Any details..." />
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold text-gray-700 block mb-1">Receipt / Photo (optional)</label>
+        <label className="flex items-center gap-3 w-full h-12 border-2 border-dashed border-emerald-200 bg-emerald-50/10 hover:bg-emerald-50/30 rounded-xl px-3.5 cursor-pointer hover:border-emerald-400 transition-colors">
+          <Upload className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+          <span className="text-xs text-emerald-700 font-semibold truncate">
+            {receiptFile ? receiptFile.name : "Tap to attach receipt or photo..."}
+          </span>
+          <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => setReceiptFile(e.target.files?.[0] ?? null)} />
+        </label>
+      </div>
+
+      <div className="flex gap-3 pt-2">
+        <button onClick={onClose} className="flex-1 h-12 border border-border text-gray-900 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors">Cancel</button>
+        <button onClick={handleSave} disabled={saving}
+          className="flex-1 h-12 bg-gray-950 hover:bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-40 flex items-center justify-center gap-2 transition-colors">
+          {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Save Expense"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 type QuickAddPrefs = { log: boolean; expense: boolean; funds: boolean; reminder: boolean; wish: boolean; note: boolean };
 
-export function QuickAddModal({ quickAddPrefs }: { quickAddPrefs?: QuickAddPrefs }) {
+const DEFAULT_ORDER = ["log", "expense", "funds", "reminder", "wish", "note"];
+
+export function QuickAddModal({ quickAddPrefs, quickAddOrder }: { quickAddPrefs?: QuickAddPrefs; quickAddOrder?: string[] }) {
   const [open, setOpen] = useState(false);
   const [screen, setScreen] = useState<Screen>("menu");
   const prefs = quickAddPrefs ?? { log: true, expense: true, funds: true, reminder: true, wish: true, note: true };
+  const order = quickAddOrder ?? DEFAULT_ORDER;
 
   function handleClose() {
     setOpen(false);
@@ -536,7 +774,7 @@ export function QuickAddModal({ quickAddPrefs }: { quickAddPrefs?: QuickAddPrefs
   return (
     <Dialog.Root open={open} onOpenChange={(o) => { setOpen(o); if (!o) setScreen("menu"); }}>
       <Dialog.Trigger asChild>
-        <button className="flex items-center justify-center w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg transform -translate-y-4 hover:scale-105 transition-transform focus:outline-none">
+        <button className="flex items-center justify-center w-14 h-14 bg-amber-500 text-white rounded-full shadow-lg transform -translate-y-4 hover:scale-105 transition-transform focus:outline-none">
           <Plus className="h-6 w-6" />
         </button>
       </Dialog.Trigger>
@@ -553,42 +791,46 @@ export function QuickAddModal({ quickAddPrefs }: { quickAddPrefs?: QuickAddPrefs
                 </Dialog.Description>
               </div>
               <div className="grid gap-3 py-2 max-h-[60vh] overflow-y-auto pr-1">
-                {prefs.log && (
-                  <button onClick={() => setScreen("log")} className="flex items-center gap-4 bg-blue-50/20 hover:bg-blue-50/60 p-4 rounded-xl border border-blue-100 text-left transition-colors">
-                    <div className="bg-blue-100 p-3 rounded-full"><PencilLine className="h-6 w-6 text-blue-700" /></div>
-                    <div><h4 className="font-semibold text-gray-900 text-base">Add Works Completed</h4><p className="text-xs text-muted-foreground mt-0.5">Log daily progress with photos</p></div>
-                  </button>
-                )}
-                {prefs.expense && (
-                  <button onClick={() => setScreen("expense")} className="flex items-center gap-4 bg-emerald-50/20 hover:bg-emerald-50/60 p-4 rounded-xl border border-emerald-100 text-left transition-colors">
-                    <div className="bg-emerald-100 p-3 rounded-full"><Receipt className="h-6 w-6 text-emerald-700" /></div>
-                    <div><h4 className="font-semibold text-gray-900 text-base">Add Expense / Receipt</h4><p className="text-xs text-muted-foreground mt-0.5">Record a payment with optional receipt</p></div>
-                  </button>
-                )}
-                {prefs.funds && (
-                  <button onClick={() => setScreen("funds")} className="flex items-center gap-4 bg-orange-50/20 hover:bg-orange-50/60 p-4 rounded-xl border border-orange-100 text-left transition-colors">
-                    <div className="bg-orange-100 p-3 rounded-full"><Landmark className="h-6 w-6 text-orange-700" /></div>
-                    <div><h4 className="font-semibold text-gray-900 text-base">Add Funds</h4><p className="text-xs text-muted-foreground mt-0.5">Record capital received for the project</p></div>
-                  </button>
-                )}
-                {prefs.reminder && (
-                  <button onClick={() => setScreen("reminder")} className="flex items-center gap-4 bg-purple-50/20 hover:bg-purple-50/60 p-4 rounded-xl border border-purple-100 text-left transition-colors">
-                    <div className="bg-purple-100 p-3 rounded-full"><Bell className="h-6 w-6 text-purple-700" /></div>
-                    <div><h4 className="font-semibold text-gray-900 text-base">Reminder / Followup</h4><p className="text-xs text-muted-foreground mt-0.5">Set a reminder or calendar followup task</p></div>
-                  </button>
-                )}
-                {prefs.wish && (
-                  <button onClick={() => setScreen("wish")} className="flex items-center gap-4 bg-rose-50/20 hover:bg-rose-50/60 p-4 rounded-xl border border-rose-100 text-left transition-colors">
-                    <div className="bg-rose-100 p-3 rounded-full"><Sparkles className="h-6 w-6 text-rose-700" /></div>
-                    <div><h4 className="font-semibold text-gray-900 text-base">Wishlist / Pending Work</h4><p className="text-xs text-muted-foreground mt-0.5">Add backlog items or project backlog desires</p></div>
-                  </button>
-                )}
-                {prefs.note && (
-                  <button onClick={() => setScreen("note")} className="flex items-center gap-4 bg-amber-50/20 hover:bg-amber-50/60 p-4 rounded-xl border border-amber-100 text-left transition-colors">
-                    <div className="bg-amber-100 p-3 rounded-full"><PenSquare className="h-6 w-6 text-amber-700" /></div>
-                    <div><h4 className="font-semibold text-gray-900 text-base">Project Jotting / Note</h4><p className="text-xs text-muted-foreground mt-0.5">Quickly jot down design thoughts or notes</p></div>
-                  </button>
-                )}
+                {order.map((key) => {
+                  if (!prefs[key as keyof QuickAddPrefs]) return null;
+                  if (key === "log") return (
+                    <button key="log" onClick={() => setScreen("log")} className="flex items-center gap-4 bg-blue-50/20 hover:bg-blue-50/60 p-4 rounded-xl border border-blue-100 text-left transition-colors">
+                      <div className="bg-blue-100 p-3 rounded-full"><PencilLine className="h-6 w-6 text-blue-700" /></div>
+                      <div><h4 className="font-semibold text-gray-900 text-base">Add Works Completed</h4><p className="text-xs text-muted-foreground mt-0.5">Log daily progress with photos</p></div>
+                    </button>
+                  );
+                  if (key === "expense") return (
+                    <button key="expense" onClick={() => setScreen("expense")} className="flex items-center gap-4 bg-emerald-50/20 hover:bg-emerald-50/60 p-4 rounded-xl border border-emerald-100 text-left transition-colors">
+                      <div className="bg-emerald-100 p-3 rounded-full"><Receipt className="h-6 w-6 text-emerald-700" /></div>
+                      <div><h4 className="font-semibold text-gray-900 text-base">Add Expense / Receipt</h4><p className="text-xs text-muted-foreground mt-0.5">Record a payment with optional receipt</p></div>
+                    </button>
+                  );
+                  if (key === "funds") return (
+                    <button key="funds" onClick={() => setScreen("funds")} className="flex items-center gap-4 bg-orange-50/20 hover:bg-orange-50/60 p-4 rounded-xl border border-orange-100 text-left transition-colors">
+                      <div className="bg-orange-100 p-3 rounded-full"><Landmark className="h-6 w-6 text-orange-700" /></div>
+                      <div><h4 className="font-semibold text-gray-900 text-base">Add Funds</h4><p className="text-xs text-muted-foreground mt-0.5">Record capital received for the project</p></div>
+                    </button>
+                  );
+                  if (key === "reminder") return (
+                    <button key="reminder" onClick={() => setScreen("reminder")} className="flex items-center gap-4 bg-purple-50/20 hover:bg-purple-50/60 p-4 rounded-xl border border-purple-100 text-left transition-colors">
+                      <div className="bg-purple-100 p-3 rounded-full"><Bell className="h-6 w-6 text-purple-700" /></div>
+                      <div><h4 className="font-semibold text-gray-900 text-base">Reminder / Followup</h4><p className="text-xs text-muted-foreground mt-0.5">Set a reminder or calendar followup task</p></div>
+                    </button>
+                  );
+                  if (key === "wish") return (
+                    <button key="wish" onClick={() => setScreen("wish")} className="flex items-center gap-4 bg-rose-50/20 hover:bg-rose-50/60 p-4 rounded-xl border border-rose-100 text-left transition-colors">
+                      <div className="bg-rose-100 p-3 rounded-full"><Sparkles className="h-6 w-6 text-rose-700" /></div>
+                      <div><h4 className="font-semibold text-gray-900 text-base">Wishlist / Pending Work</h4><p className="text-xs text-muted-foreground mt-0.5">Add backlog items or project backlog desires</p></div>
+                    </button>
+                  );
+                  if (key === "note") return (
+                    <button key="note" onClick={() => setScreen("note")} className="flex items-center gap-4 bg-amber-50/20 hover:bg-amber-50/60 p-4 rounded-xl border border-amber-100 text-left transition-colors">
+                      <div className="bg-amber-100 p-3 rounded-full"><PenSquare className="h-6 w-6 text-amber-700" /></div>
+                      <div><h4 className="font-semibold text-gray-900 text-base">Project Jotting / Note</h4><p className="text-xs text-muted-foreground mt-0.5">Quickly jot down design thoughts or notes</p></div>
+                    </button>
+                  );
+                  return null;
+                })}
               </div>
               <Dialog.Close asChild>
                 <button className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100">
@@ -600,7 +842,7 @@ export function QuickAddModal({ quickAddPrefs }: { quickAddPrefs?: QuickAddPrefs
 
           {/* Form Screens */}
           {screen === "log" && <QuickLogForm onClose={() => setScreen("menu")} onSaved={() => { handleClose(); window.location.reload(); }} />}
-          {screen === "expense" && <ExpenseForm onClose={() => setScreen("menu")} onSaved={() => { handleClose(); window.location.reload(); }} />}
+          {screen === "expense" && <QuickExpenseForm onClose={() => setScreen("menu")} onSaved={() => { handleClose(); window.location.reload(); }} />}
           {screen === "funds" && <QuickFundsForm onClose={() => setScreen("menu")} onSaved={() => { handleClose(); window.location.reload(); }} />}
           {screen === "reminder" && <QuickReminderForm onClose={() => setScreen("menu")} onSaved={() => { handleClose(); window.location.reload(); }} initialType="reminder" />}
           {screen === "wish" && <QuickReminderForm onClose={() => setScreen("menu")} onSaved={() => { handleClose(); window.location.reload(); }} initialType="wish" />}

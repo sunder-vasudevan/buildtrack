@@ -20,19 +20,40 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
   const [phases, setPhases] = useState(initialPhases);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [editing, setEditing] = useState<Partial<Phase>>({});
-  const [deliverableEdits, setDeliverableEdits] = useState<Record<number, { planned_start?: string; actual_due?: string }>>({});
+  const [deliverableEdits, setDeliverableEdits] = useState<Record<number, { planned_start?: string; actual_due?: string; name?: string }>>({});
+  const [newDeliverableName, setNewDeliverableName] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const [photos, setPhotos] = useState<Record<string, string>>({});
+  const [phaseReceipts, setPhaseReceipts] = useState<{id: string; item_name: string; actual_cost: number | null; receipt_url: string}[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadTarget, setUploadTarget] = useState<{ phaseId: string, index: number } | null>(null);
 
-  // Fetch photos for expanded phase
+  // Fetch photos and receipts for expanded phase
   useEffect(() => {
-    if (!expanded) return;
-    
-    // Photos are stored as URLs in phase deliverables — no storage listing needed
+    if (!expanded) {
+      setPhaseReceipts([]);
+      return;
+    }
+    // Load photo_url values from deliverables for the expanded phase
+    const phase = phases.find(p => p.id === expanded);
+    if (phase?.deliverables) {
+      const loaded: Record<string, string> = {};
+      (phase.deliverables as any[]).forEach((d, i) => {
+        if (d?.photo_url) loaded[`${expanded}_${i}`] = d.photo_url;
+      });
+      setPhotos(prev => ({ ...prev, ...loaded }));
+    }
+    // Load receipt_url from budget_items for this phase
+    (async () => {
+      const { data: budgetItems } = await supabase
+        .from("budget_items")
+        .select("id, item_name, actual_cost, receipt_url")
+        .eq("phase_id", expanded)
+        .not("receipt_url", "is", null);
+      setPhaseReceipts((budgetItems as any[] ?? []) as {id: string; item_name: string; actual_cost: number | null; receipt_url: string}[]);
+    })();
   }, [expanded]);
 
   async function savePhase(id: string) {
@@ -44,10 +65,16 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
       if (!edits) return d;
       return {
         ...d,
+        ...(edits.name !== undefined && edits.name.trim() ? { name: edits.name.trim() } : {}),
         ...(edits.planned_start !== undefined ? { planned_start: edits.planned_start || null } : {}),
         ...(edits.actual_due !== undefined ? { actual_due: edits.actual_due || null } : {}),
       };
     });
+    // Append new deliverable if typed
+    if (newDeliverableName.trim()) {
+      updatedDeliverables.push({ name: newDeliverableName.trim(), planned_start: null, planned_due: null, actual_due: null });
+      setNewDeliverableName("");
+    }
     // Derive actual_start_date from earliest planned_start, actual_end_date from latest planned_due
     const plannedStarts = updatedDeliverables.map((d) => d.planned_start).filter(Boolean) as string[];
     const plannedDues = updatedDeliverables.map((d) => d.planned_due).filter(Boolean) as string[];
@@ -87,6 +114,16 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
     try {
       const url = await uploadFile(file);
       setPhotos(prev => ({ ...prev, [targetKey]: url }));
+
+      // Persist photo_url back to DB so it survives page reload
+      const phase = phases.find(p => p.id === phaseId);
+      if (phase) {
+        const updatedDeliverables = (phase.deliverables as any[] ?? []).map((d: any, i: number) =>
+          i === index ? { ...d, photo_url: url } : d
+        );
+        await supabase.from("phases").update({ deliverables: updatedDeliverables }).eq("id", phaseId);
+        setPhases(prev => prev.map(p => p.id === phaseId ? { ...p, deliverables: updatedDeliverables } : p));
+      }
     } catch {
       alert("Error uploading photo. Please try again.");
     }
@@ -123,6 +160,7 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
                   setExpanded(isOpen ? null : phase.id);
                   setEditing({ status: phase.status, actual_start_date: phase.actual_start_date, actual_end_date: phase.actual_end_date, notes: phase.notes, deliverables: phase.deliverables });
                   setDeliverableEdits({});
+                  setNewDeliverableName("");
                 }}
                 className="w-full p-4 text-left"
               >
@@ -149,11 +187,10 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
               {isOpen && (
                 <div className="border-t border-border p-4 space-y-4">
                   {/* Deliverables */}
-                  {phase.deliverables && phase.deliverables.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold text-gray-700 mb-2">Deliverables</p>
-                      <div className="space-y-3">
-                        {phase.deliverables.map((item, i) => {
+                  <div>
+                    <p className="text-xs font-semibold text-gray-700 mb-2">Deliverables</p>
+                    <div className="space-y-3">
+                        {(phase.deliverables ?? []).map((item, i) => {
                           const d = typeof item === "string" ? { name: item, planned_start: null, planned_due: null, actual_due: null } : item;
                           const targetKey = `${phase.id}_${i}`;
                           const isUploading = uploading === targetKey;
@@ -170,7 +207,12 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
                                 ) : (
                                   <Circle className={`h-4 w-4 flex-shrink-0 mt-0.5 ${isLate ? "text-red-300" : "text-gray-300"}`} />
                                 )}
-                                <span className="text-gray-700 flex-1 leading-snug font-medium">{d.name}</span>
+                                <input
+                                  type="text"
+                                  value={deliverableEdits[i]?.name !== undefined ? deliverableEdits[i].name! : d.name}
+                                  onChange={(e) => setDeliverableEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: e.target.value } }))}
+                                  className="flex-1 h-8 border border-border rounded-md px-2 text-xs bg-white font-medium text-gray-700 focus:outline-none focus:border-gray-400"
+                                />
                               </div>
                               <div className="grid grid-cols-3 gap-2 pl-6">
                                 <div>
@@ -234,6 +276,51 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
                             </div>
                           );
                         })}
+                        {/* Add new deliverable */}
+                        <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-dashed border-border">
+                          <input
+                            type="text"
+                            value={newDeliverableName}
+                            onChange={(e) => setNewDeliverableName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && newDeliverableName.trim()) {
+                                setEditing((p) => ({ ...p, deliverables: [...(p.deliverables ?? []), { name: newDeliverableName.trim(), planned_start: null, planned_due: null, actual_due: null }] }));
+                                setNewDeliverableName("");
+                              }
+                            }}
+                            className="flex-1 h-8 border border-border rounded-md px-2 text-xs bg-white focus:outline-none focus:border-gray-400"
+                            placeholder="New deliverable name..."
+                          />
+                          <button
+                            type="button"
+                            disabled={!newDeliverableName.trim()}
+                            onClick={() => {
+                              if (!newDeliverableName.trim()) return;
+                              setEditing((p) => ({ ...p, deliverables: [...(p.deliverables ?? []), { name: newDeliverableName.trim(), planned_start: null, planned_due: null, actual_due: null }] }));
+                              setNewDeliverableName("");
+                            }}
+                            className="h-8 px-3 text-xs font-semibold bg-gray-900 text-white rounded-md disabled:opacity-40"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                  {/* Receipts from budget items */}
+                  {phaseReceipts.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Receipts</p>
+                      <div className="flex gap-2 flex-wrap">
+                        {phaseReceipts.map(r => (
+                          <div key={r.id} className="relative">
+                            <a href={r.receipt_url} target="_blank" rel="noopener noreferrer">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={r.receipt_url} alt={r.item_name} className="h-16 w-16 object-cover rounded-lg border border-border" />
+                            </a>
+                            <p className="text-[9px] text-gray-500 mt-0.5 max-w-[64px] truncate">{r.item_name}</p>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}

@@ -4,7 +4,8 @@ import { useState, useMemo, useEffect } from "react";
 import { Reminder } from "@/lib/types";
 import { formatDate, isWish, cleanWishText, parseWishPhase } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
-import { Bell, AlertCircle, Clock, Calendar, Check, ChevronDown, Loader2, Star, Sparkles, Plus } from "lucide-react";
+import { Bell, AlertCircle, Clock, Calendar, Check, ChevronDown, Loader2, Star, Sparkles, Plus, CalendarPlus } from "lucide-react";
+import { downloadICS } from "@/lib/ics";
 
 export function ReminderWidget({ initialReminders }: { initialReminders: Reminder[] }) {
   const [reminders, setReminders] = useState<Reminder[]>(initialReminders);
@@ -225,12 +226,21 @@ export function ReminderWidget({ initialReminders }: { initialReminders: Reminde
                           <p className="text-[9px] font-semibold text-red-600 mt-0.5 font-sans">Due: {formatDate(r.due_date!)}</p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleMarkDone(r.id)}
-                        className="h-7 w-7 rounded-full bg-white border border-red-200 text-red-600 flex items-center justify-center shadow-sm hover:bg-red-50 transition-colors active:scale-95 shrink-0"
-                      >
-                        <Check className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => downloadICS(r.text, r.due_date!)}
+                          title="Add to phone calendar"
+                          className="h-7 w-7 rounded-full bg-white border border-red-200 text-red-400 flex items-center justify-center shadow-sm hover:bg-red-50 transition-colors active:scale-95"
+                        >
+                          <CalendarPlus className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleMarkDone(r.id)}
+                          className="h-7 w-7 rounded-full bg-white border border-red-200 text-red-600 flex items-center justify-center shadow-sm hover:bg-red-50 transition-colors active:scale-95"
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -249,12 +259,21 @@ export function ReminderWidget({ initialReminders }: { initialReminders: Reminde
                           <p className="text-[9px] font-semibold text-amber-600 mt-0.5">Today</p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleMarkDone(r.id)}
-                        className="h-7 w-7 rounded-full bg-white border border-amber-200 text-amber-600 flex items-center justify-center shadow-sm hover:bg-amber-50 transition-colors active:scale-95 shrink-0"
-                      >
-                        <Check className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => downloadICS(r.text, r.due_date!)}
+                          title="Add to phone calendar"
+                          className="h-7 w-7 rounded-full bg-white border border-amber-200 text-amber-400 flex items-center justify-center shadow-sm hover:bg-amber-50 transition-colors active:scale-95"
+                        >
+                          <CalendarPlus className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleMarkDone(r.id)}
+                          className="h-7 w-7 rounded-full bg-white border border-amber-200 text-amber-600 flex items-center justify-center shadow-sm hover:bg-amber-50 transition-colors active:scale-95"
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -275,12 +294,23 @@ export function ReminderWidget({ initialReminders }: { initialReminders: Reminde
                           )}
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleMarkDone(r.id)}
-                        className="h-7 w-7 rounded-full bg-white border border-border text-gray-600 flex items-center justify-center shadow-sm hover:bg-gray-100 transition-colors active:scale-95 shrink-0"
-                      >
-                        <Check className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {r.due_date && (
+                          <button
+                            onClick={() => downloadICS(r.text, r.due_date!)}
+                            title="Add to phone calendar"
+                            className="h-7 w-7 rounded-full bg-white border border-border text-gray-400 flex items-center justify-center shadow-sm hover:bg-gray-100 transition-colors active:scale-95"
+                          >
+                            <CalendarPlus className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleMarkDone(r.id)}
+                          className="h-7 w-7 rounded-full bg-white border border-border text-gray-600 flex items-center justify-center shadow-sm hover:bg-gray-100 transition-colors active:scale-95"
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

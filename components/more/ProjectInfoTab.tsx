@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { BudgetItem, DailyLog, Income, Phase, Project, Window, PlanDocument, Reminder } from "@/lib/types";
 import { formatINR, formatDate, daysLeft } from "@/lib/utils";
-import { Building2, Download, Loader2, Settings, ChevronDown, ChevronUp, Grid, FileText, PenSquare, Trash2, Search, Plus, BookOpen, SlidersHorizontal } from "lucide-react";
-import { ProjectPreferences, DEFAULT_PROJECT_PREFERENCES } from "@/lib/types";
+import { Building2, Download, Loader2, Settings, ChevronDown, ChevronUp, Grid, FileText, PenSquare, Trash2, Search, Plus, BookOpen, SlidersHorizontal, Pencil, X, Check } from "lucide-react";
+import { ProjectPreferences, DEFAULT_QUICK_ADD_ORDER } from "@/lib/types";
+import { usePrefs } from "@/lib/prefs-context";
 import { WindowsClient } from "@/components/tracker/WindowsTab";
 import { PlansTab } from "@/components/tracker/PlansTab";
 
@@ -56,7 +57,7 @@ function exportExcel(filename: string, rows: Record<string, unknown>[]) {
 }
 
 export function ProjectInfoTab({
-  project,
+  project: initialProject,
   initialWindows,
   initialPlans,
   initialReminders = [],
@@ -66,24 +67,65 @@ export function ProjectInfoTab({
   initialPlans?: PlanDocument[];
   initialReminders?: Reminder[];
 }) {
+  const [project, setProject] = useState<Project | null>(initialProject);
+  const [editMode, setEditMode] = useState(false);
+  const [editFields, setEditFields] = useState({
+    name: "",
+    location: "",
+    plot_size: "",
+    building_area: "",
+    total_budget: "",
+    start_date: "",
+    end_date: "",
+  });
+  const [savingProject, setSavingProject] = useState(false);
+
+  function startEdit() {
+    if (!project) return;
+    setEditFields({
+      name: project.name,
+      location: project.location ?? "",
+      plot_size: project.plot_size ?? "",
+      building_area: project.building_area ?? "",
+      total_budget: String(project.total_budget),
+      start_date: project.start_date,
+      end_date: project.end_date,
+    });
+    setEditMode(true);
+  }
+
+  async function saveEdit() {
+    if (!project) return;
+    setSavingProject(true);
+    const payload = {
+      name: editFields.name,
+      location: editFields.location || null,
+      plot_size: editFields.plot_size || null,
+      building_area: editFields.building_area || null,
+      total_budget: Number(editFields.total_budget),
+      start_date: editFields.start_date,
+      end_date: editFields.end_date,
+    };
+    const { error } = await supabase.from("projects").update(payload).eq("id", project.id);
+    if (!error) {
+      const updated = { ...project, ...payload };
+      setProject(updated);
+      if (editFields.name !== project.name) {
+        setPrefs({ ...prefs });
+      }
+      setEditMode(false);
+    }
+    setSavingProject(false);
+  }
+
   const [loading, setLoading] = useState(false);
   const [windowsExpanded, setWindowsExpanded] = useState(false);
   const [plansExpanded, setPlansExpanded] = useState(false);
   const [notesExpanded, setNotesExpanded] = useState(true);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
   const [prefsExpanded, setPrefsExpanded] = useState(false);
-  const [prefs, setPrefs] = useState<ProjectPreferences>(DEFAULT_PROJECT_PREFERENCES);
+  const { prefs, setPrefs } = usePrefs();
   const [savingPrefs, setSavingPrefs] = useState(false);
-
-  useEffect(() => {
-    async function loadPrefs() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase.from("projects").select("preferences").eq("user_id", user.id).maybeSingle();
-      if (data?.preferences?.tabs) setPrefs(data.preferences as ProjectPreferences);
-    }
-    loadPrefs();
-  }, []);
 
   async function savePrefs(updated: ProjectPreferences) {
     setSavingPrefs(true);
@@ -92,8 +134,19 @@ export function ProjectInfoTab({
     setSavingPrefs(false);
   }
 
-  function togglePref(section: "tabs" | "quickAdd", key: string) {
-    const updated = { ...prefs, [section]: { ...prefs[section], [key]: !prefs[section][key as keyof typeof prefs[typeof section]] } };
+  function togglePref(section: "tabs" | "quickAdd" | "dashboardWidgets", key: string) {
+    const sectionObj = prefs[section] ?? {};
+    const updated = { ...prefs, [section]: { ...sectionObj, [key]: !(sectionObj as Record<string, boolean>)[key] } };
+    setPrefs(updated);
+    savePrefs(updated);
+  }
+
+  function moveQuickAdd(index: number, dir: -1 | 1) {
+    const order = [...(prefs.quickAddOrder ?? DEFAULT_QUICK_ADD_ORDER)];
+    const target = index + dir;
+    if (target < 0 || target >= order.length) return;
+    [order[index], order[target]] = [order[target], order[index]];
+    const updated = { ...prefs, quickAddOrder: order };
     setPrefs(updated);
     savePrefs(updated);
   }
@@ -318,19 +371,47 @@ export function ProjectInfoTab({
     <div className="p-4 space-y-4">
       {/* Section 1: Project details card */}
       <div className="bg-white rounded-xl p-4 shadow-sm border border-border space-y-3">
-        <h2 className="font-semibold text-sm text-gray-900 flex items-center gap-2">
-          <Building2 className="h-4.5 w-4.5 text-gray-500" /> Project Details
-        </h2>
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Name</p><p className="font-semibold text-gray-950">{project.name}</p></div>
-          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Location</p><p className="font-semibold text-gray-950">{project.location ?? "—"}</p></div>
-          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Plot Size</p><p className="font-semibold text-gray-950 font-sans">{project.plot_size ?? "—"}</p></div>
-          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Building Area</p><p className="font-semibold text-gray-950 font-sans">{project.building_area ?? "—"}</p></div>
-          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Budget</p><p className="font-semibold text-gray-950 font-sans">{formatINR(project.total_budget)}</p></div>
-          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Days Left</p><p className="font-semibold text-gray-950 font-sans">{daysLeft(project.end_date)}d</p></div>
-          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Start</p><p className="font-semibold text-gray-950 font-sans">{formatDate(project.start_date)}</p></div>
-          <div><p className="text-[10px] text-muted-foreground uppercase font-bold">End</p><p className="font-semibold text-gray-950 font-sans">{formatDate(project.end_date)}</p></div>
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-sm text-gray-900 flex items-center gap-2">
+            <Building2 className="h-4.5 w-4.5 text-gray-500" /> Project Details
+          </h2>
+          {!editMode ? (
+            <button onClick={startEdit} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+              <Pencil className="h-3.5 w-3.5" /> Edit
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => setEditMode(false)} disabled={savingProject} className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-40">
+                <X className="h-3.5 w-3.5" /> Cancel
+              </button>
+              <button onClick={saveEdit} disabled={savingProject} className="flex items-center gap-1 text-xs bg-gray-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-40">
+                {savingProject ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Save
+              </button>
+            </div>
+          )}
         </div>
+        {!editMode ? (
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Name</p><p className="font-semibold text-gray-950">{project.name}</p></div>
+            <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Location</p><p className="font-semibold text-gray-950">{project.location ?? "—"}</p></div>
+            <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Plot Size</p><p className="font-semibold text-gray-950 font-sans">{project.plot_size ?? "—"}</p></div>
+            <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Building Area</p><p className="font-semibold text-gray-950 font-sans">{project.building_area ?? "—"}</p></div>
+            <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Budget</p><p className="font-semibold text-gray-950 font-sans">{formatINR(project.total_budget)}</p></div>
+            <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Days Left</p><p className="font-semibold text-gray-950 font-sans">{daysLeft(project.end_date)}d</p></div>
+            <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Start</p><p className="font-semibold text-gray-950 font-sans">{formatDate(project.start_date)}</p></div>
+            <div><p className="text-[10px] text-muted-foreground uppercase font-bold">End</p><p className="font-semibold text-gray-950 font-sans">{formatDate(project.end_date)}</p></div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="col-span-2"><p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Name</p><input type="text" value={editFields.name} onChange={e => setEditFields(f => ({...f, name: e.target.value}))} className="w-full h-9 border border-border rounded-lg px-3 text-sm focus:outline-none focus:border-gray-400 bg-white" /></div>
+            <div className="col-span-2"><p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Location</p><input type="text" value={editFields.location} onChange={e => setEditFields(f => ({...f, location: e.target.value}))} className="w-full h-9 border border-border rounded-lg px-3 text-sm focus:outline-none focus:border-gray-400 bg-white" /></div>
+            <div><p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Plot Size (sqft)</p><input type="number" value={editFields.plot_size} onChange={e => setEditFields(f => ({...f, plot_size: e.target.value}))} className="w-full h-9 border border-border rounded-lg px-3 text-sm focus:outline-none focus:border-gray-400 bg-white" /></div>
+            <div><p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Building Area (sqft)</p><input type="number" value={editFields.building_area} onChange={e => setEditFields(f => ({...f, building_area: e.target.value}))} className="w-full h-9 border border-border rounded-lg px-3 text-sm focus:outline-none focus:border-gray-400 bg-white" /></div>
+            <div className="col-span-2"><p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Total Budget (₹)</p><input type="number" value={editFields.total_budget} onChange={e => setEditFields(f => ({...f, total_budget: e.target.value}))} className="w-full h-9 border border-border rounded-lg px-3 text-sm focus:outline-none focus:border-gray-400 bg-white" /></div>
+            <div><p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Start Date</p><input type="date" value={editFields.start_date} onChange={e => setEditFields(f => ({...f, start_date: e.target.value}))} className="w-full h-9 border border-border rounded-lg px-3 text-sm focus:outline-none focus:border-gray-400 bg-white" /></div>
+            <div><p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">End Date</p><input type="date" value={editFields.end_date} onChange={e => setEditFields(f => ({...f, end_date: e.target.value}))} className="w-full h-9 border border-border rounded-lg px-3 text-sm focus:outline-none focus:border-gray-400 bg-white" /></div>
+          </div>
+        )}
       </div>
 
       {/* NEW SECTION: Running Notes & Jottings Legal Pad */}
@@ -595,26 +676,69 @@ export function ProjectInfoTab({
               </div>
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Quick Add Options</p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Home Page Widgets</p>
               <div className="space-y-2">
                 {([
-                  { key: "log", label: "Log Work" },
-                  { key: "expense", label: "Add Expense" },
-                  { key: "funds", label: "Add Funds" },
-                  { key: "reminder", label: "Reminder" },
-                  { key: "wish", label: "Wish List" },
-                  { key: "note", label: "Note" },
-                ] as { key: keyof ProjectPreferences["quickAdd"]; label: string }[]).map(({ key, label }) => (
-                  <div key={key} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">{label}</span>
-                    <button
-                      onClick={() => togglePref("quickAdd", key)}
-                      className={`relative w-11 h-6 rounded-full transition-colors ${prefs.quickAdd[key] ? "bg-gray-900" : "bg-gray-200"}`}
-                    >
-                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${prefs.quickAdd[key] ? "translate-x-5" : "translate-x-0"}`} />
-                    </button>
-                  </div>
-                ))}
+                  { key: "phaseProgress", label: "Phase Progress" },
+                  { key: "netCash", label: "Net Cash Banner" },
+                  { key: "metrics", label: "Key Metrics" },
+                  { key: "budgetProgress", label: "Budget Progress" },
+                  { key: "upcomingDeliverables", label: "Upcoming Milestones" },
+                  { key: "reminders", label: "Reminders" },
+                  { key: "pendingTasks", label: "Pending Tasks" },
+                  { key: "recentActivity", label: "Recent Activity" },
+                ] as { key: keyof NonNullable<ProjectPreferences["dashboardWidgets"]>; label: string }[]).map(({ key, label }) => {
+                  const val = prefs.dashboardWidgets?.[key] ?? true;
+                  return (
+                    <div key={key} className="flex items-center justify-between">
+                      <span className="text-sm text-gray-700">{label}</span>
+                      <button
+                        onClick={() => togglePref("dashboardWidgets", key)}
+                        className={`relative w-11 h-6 rounded-full transition-colors ${val ? "bg-gray-900" : "bg-gray-200"}`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${val ? "translate-x-5" : "translate-x-0"}`} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Quick Add Options</p>
+              <div className="space-y-2">
+                {(() => {
+                  const LABELS: Record<string, string> = { log: "Log Work", expense: "Add Expense", funds: "Add Funds", reminder: "Reminder", wish: "Wish List", note: "Note" };
+                  const order = prefs.quickAddOrder ?? DEFAULT_QUICK_ADD_ORDER;
+                  return order.map((key, index) => (
+                    <div key={key} className="flex items-center gap-2">
+                      <div className="flex flex-col gap-0.5 shrink-0">
+                        <button
+                          onClick={() => moveQuickAdd(index, -1)}
+                          disabled={index === 0}
+                          className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-20 disabled:cursor-not-allowed"
+                          title="Move up"
+                        >
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => moveQuickAdd(index, 1)}
+                          disabled={index === order.length - 1}
+                          className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-20 disabled:cursor-not-allowed"
+                          title="Move down"
+                        >
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <span className="text-sm text-gray-700 flex-1">{LABELS[key] ?? key}</span>
+                      <button
+                        onClick={() => togglePref("quickAdd", key)}
+                        className={`relative w-11 h-6 rounded-full transition-colors ${prefs.quickAdd[key as keyof typeof prefs.quickAdd] ? "bg-gray-900" : "bg-gray-200"}`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${prefs.quickAdd[key as keyof typeof prefs.quickAdd] ? "translate-x-5" : "translate-x-0"}`} />
+                      </button>
+                    </div>
+                  ));
+                })()}
               </div>
             </div>
           </div>

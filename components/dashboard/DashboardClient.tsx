@@ -9,6 +9,7 @@ import { RecentActivityWidget } from "@/components/dashboard/RecentActivityWidge
 import { UpcomingDeliverablesWidget } from "@/components/dashboard/UpcomingDeliverablesWidget";
 import { ExpenseForm } from "@/components/finances/ExpenseForm";
 import { supabase } from "@/lib/supabase";
+import { usePrefs } from "@/lib/prefs-context";
 
 interface DashboardClientProps {
   initialData: {
@@ -23,8 +24,16 @@ interface DashboardClientProps {
 
 export function DashboardClient({ initialData }: DashboardClientProps) {
   const { project, budgetItems, recentLogs, incomes, phases, reminders } = initialData;
+  const { prefs } = usePrefs();
   const [activeModal, setActiveModal] = useState<"budget" | "funds" | "spent" | "variance" | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
+
+  const CHANGELOG = [
+    { version: "v2.0.0", date: "17 May 2026", items: ["Multi-user login & accounts", "Setup wizard for new projects", "Backblaze B2 cloud storage", "Add reminders to phone calendar", "Display preferences per user"] },
+    { version: "v1.0.0", date: "12 May 2026", items: ["Financial dashboard", "Net Cash Balance banner", "Reminders widget", "QuickAdd FAB"] },
+    { version: "v0.1.0", date: "11 May 2026", items: ["First release — phases & deliverables", "Daily logs & budget tracking"] },
+  ];
 
   // Stateful copies for real-time responsiveness
   const [currentProject, setCurrentProject] = useState<Project | null>(project);
@@ -236,7 +245,14 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
       {/* Header */}
       <div className="pt-4 pb-2 flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">{currentProject?.name ?? "BuildTrack"}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-gray-900">{currentProject?.name ?? "BuildTrack"}</h1>
+            {phases.length > 0 && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                {Math.round((phases.filter(p => p.status === "Completed").length / phases.length) * 100)}%
+              </span>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">{currentProject?.location ?? ""}</p>
         </div>
         <div className="flex items-center gap-2 mt-1">
@@ -249,8 +265,34 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
         </div>
       </div>
 
+      {/* Phase Progress Section */}
+      {(prefs.dashboardWidgets?.phaseProgress ?? true) && phases.length > 0 && (() => {
+        const completedPhases = phases.filter(p => p.status === "Completed").length;
+        const phasePct = Math.round((completedPhases / phases.length) * 100);
+        return (
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-border space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-gray-700">{completedPhases} of {phases.length} phases complete</p>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">{phasePct}%</span>
+            </div>
+            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${phasePct}%` }} />
+            </div>
+            <div className="space-y-1 pt-1">
+              {phases.filter(ph => ph.status === "Completed" || ph.status === "In Progress").map((ph) => (
+                <div key={ph.id} className="flex items-center gap-2">
+                  <span className={`h-2 w-2 rounded-full shrink-0 ${ph.status === "Completed" ? "bg-amber-500" : "bg-blue-400"}`} />
+                  <span className={`text-[11px] ${ph.status === "Completed" ? "line-through text-gray-400" : "text-gray-600"}`}>{ph.name}</span>
+                  <span className="ml-auto text-[10px] text-gray-400">{ph.status}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Net Cash In Hand Banner (Health Indicator) */}
-      <div
+      {(prefs.dashboardWidgets?.netCash ?? true) && <div
         onClick={() => setActiveModal("funds")}
         className={`cursor-pointer rounded-xl p-4 border shadow-sm space-y-2 transition-all hover:scale-[1.01] ${
           netBalance >= 0
@@ -275,10 +317,10 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
             ? "Site funds received exceed total actual expenditures to date. Tap to view capital logs."
             : `Site expenditures exceed deposited capital by ${formatINR(Math.abs(netBalance))}. Tap to record/view deposits.`}
         </p>
-      </div>
+      </div>}
 
       {/* Interactive 4-Grid Metrics */}
-      <div className="grid grid-cols-2 gap-3">
+      {(prefs.dashboardWidgets?.metrics ?? true) && <div className="grid grid-cols-2 gap-3">
         <div
           onClick={() => setActiveModal("budget")}
           className="bg-white hover:bg-gray-50/50 active:scale-95 cursor-pointer rounded-xl p-3 border border-border shadow-sm space-y-1 transition-all"
@@ -326,10 +368,10 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
             </span>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* Double Progress Bar */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-border space-y-2">
+      {(prefs.dashboardWidgets?.budgetProgress ?? true) && <div className="bg-white rounded-xl p-4 shadow-sm border border-border space-y-2">
         <div className="flex justify-between text-xs text-muted-foreground font-semibold">
           <span>Spent of Capital: {totalIncome > 0 ? Math.round((spent / totalIncome) * 100) : 0}%</span>
           <span>Spent of Budget: {totalBudget > 0 ? Math.round((spent / totalBudget) * 100) : 0}%</span>
@@ -343,23 +385,23 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
         {spent > totalIncome && (
           <p className="text-[10px] font-semibold text-red-600">🚨 Site actual expenses exceed capital received by {formatINR(spent - totalIncome)}</p>
         )}
-      </div>
+      </div>}
 
       {/* Upcoming Deliverables Widget */}
-      <UpcomingDeliverablesWidget phases={phases} />
+      {(prefs.dashboardWidgets?.upcomingDeliverables ?? true) && <UpcomingDeliverablesWidget phases={phases} />}
 
       {/* Reminders widget */}
-      <ReminderWidget initialReminders={allReminders} />
+      {(prefs.dashboardWidgets?.reminders ?? true) && <ReminderWidget initialReminders={allReminders} />}
 
       {/* Pending Tasks & Wishlist accordion */}
-      <PendingTasksWidget initialReminders={allReminders} />
+      {(prefs.dashboardWidgets?.pendingTasks ?? true) && <PendingTasksWidget initialReminders={allReminders} />}
 
       {/* Recent logs */}
-      <RecentActivityWidget recentLogs={logs} phases={phases} />
+      {(prefs.dashboardWidgets?.recentActivity ?? true) && <RecentActivityWidget recentLogs={logs} phases={phases} />}
 
       {/* Footer */}
       <div className="pt-8 pb-16 text-center shrink-0">
-        <p className="text-xs text-muted-foreground">v2.0.0 · 17 May 2026 · Built in Hyderabad with ❤️</p>
+        <button onClick={() => setShowChangelog(true)} className="text-xs text-muted-foreground cursor-pointer underline-offset-2 hover:text-gray-600 transition-colors">v2.0.0 · 17 May 2026 · Built in Hyderabad with ❤️</button>
       </div>
 
       {/* Help Modal */}
@@ -687,6 +729,36 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Changelog Modal */}
+      {showChangelog && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center">
+          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[80vh] flex flex-col">
+            <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
+              <h2 className="font-bold text-gray-900">What&apos;s New</h2>
+              <button onClick={() => setShowChangelog(false)} className="p-2 text-muted-foreground hover:bg-gray-100 rounded-full transition-colors"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="overflow-y-auto p-4 space-y-5">
+              {CHANGELOG.map(({ version, date, items: changes }) => (
+                <div key={version}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-700">{version}</span>
+                    <span className="text-xs text-muted-foreground">{date}</span>
+                  </div>
+                  <ul className="space-y-1">
+                    {changes.map((item) => (
+                      <li key={item} className="flex items-start gap-2 text-xs text-gray-700">
+                        <span className="text-amber-500 mt-0.5">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
           </div>
         </div>

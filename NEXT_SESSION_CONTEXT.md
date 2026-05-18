@@ -1,44 +1,47 @@
 # Next Session Context — BuildTrack
-**Created:** 2026-05-17 21:16 IST
+**Updated:** 2026-05-18 07:57 IST
 
-## Completed this session
-- Multi-user auth (email + password, open self-signup)
-- Supabase RLS on all 9 tables
-- 4-step setup wizard (/setup)
-- Backblaze B2 storage replacing Supabase Storage
-- Display Preferences in More → Project Info (tabs + QuickAdd toggles, auto-saves)
-- BottomNav hidden on /auth/* and /setup
-- Sign-out + Help (?) icons in dashboard header
-- Help modal with full guide
-- Admin: Users tab, /api/admin/users, /api/invite removed (open signup)
-- Finances + Tracker pages fixed to use createSupabaseServerClient
-- Dashboard realtime subscriptions fixed with user_id filters
-- formatDate: switched to deterministic format (no SSR hydration mismatch)
-- v2.0.0 deployed to buildtrackapp.vercel.app
+## Completed this session (2026-05-18)
+- PrefsContext: BottomNav prefs now instant (no page reload needed)
+- Add to Calendar: CalendarPlus button on reminders → .ics download
+- UI polish: amber brand color for FAB + active nav, phase progress bar, empty states for Budget/Funds, changelog modal on footer tap (v2.0.0/v1.0.0/v0.1.0)
+- Dashboard phase list: only Completed (strikethrough) + In Progress shown
+- Dashboard phase names with status dots
+- Edit Project Details: pencil icon in More → Project Info
+- Dashboard widget customisation: 8 toggles in Display Preferences → Home Page Widgets
+- QuickAdd reordering: ChevronUp/Down in Display Preferences
+- Deliverables add/rename in phase edit mode (PhasesTab)
+- Photo persistence fix: photo_url saved to phases.deliverables in DB on upload
+- Log Work ↔ Tracker link: status=Completed auto-patches deliverable in Tracker
+- Quick Expense simplified: existing item or new item, with receipt photo upload
+- receipt_url column added to budget_items (SQL run: ALTER TABLE budget_items ADD COLUMN IF NOT EXISTS receipt_url text)
+- Tracker phase view: receipt photos from budget_items shown as thumbnails
+- Users tab fix: getSession() used for instant admin check
+- Version footer unified: v2.0.0 across all pages
+- Deploy alias rule: always vercel alias after every vercel --prod
 
 ## Immediate verify at session start
-- Dashboard loads without crashing
-- Finances shows budget items + funds
-- Tracker shows phases + logs
-- Sign-out works from dashboard header
-- Help modal opens
-- Display Preferences toggles save and reflect in nav
+- buildtrackapp.vercel.app loads and dashboard shows phase progress bar
+- Quick Expense → Existing item mode shows budget items grouped by category
+- Tracker phase expand → receipt thumbnails appear if any exist
+- More → Display Preferences → Home Page Widgets shows 8 toggles
+- Log Work with status=Completed → check that deliverable turns green in Tracker
 
 ## Known issues / debt
-- BottomNav prefs update requires page reload (not instant after toggle in Project Info)
-- Vasudha's old photo URLs still point to Supabase Storage (pre-B2 uploads not migrated)
+- Vasudha's old photo URLs still point to Supabase Storage (migration script at scripts/migrate-photos-to-b2.ts, not yet run)
 - VendorsTab exists in codebase but unreachable from nav
+- TEST_REPORT.md manual tests still pending (photo upload, CSV export)
 
 ## Next tasks (confirm at session start)
-- Make BottomNav update instantly when prefs change
-- Migrate old Supabase Storage photo URLs to B2
-- TEST_REPORT.md manual tests still pending (photo upload, CSV export)
+- Run photo migration script for old Supabase Storage URLs
+- Add VendorsTab to nav or remove dead code
+- Manual TEST_REPORT.md verification
 
 ## Cold Start Checklist
 1. Read this file top to bottom
 2. Read ~/.claude/projects/-Users-sunnyhayes-Daytona/memory/MEMORY.md
 3. Read global CLAUDE.md
-4. Check Helm parking for BuildTrack
+4. Check Helm parking lot for BuildTrack status
 5. Verify buildtrackapp.vercel.app loads correctly before any work
 
 ## Credentials
@@ -46,11 +49,11 @@
 - B2: bucket=buildtrack-files, endpoint=s3.eu-central-003.backblazeb2.com, keyID=fa54df295099
 - B2 app key: in Vercel env only (B2_APP_KEY)
 - Supabase service role key: in Vercel env (SUPABASE_SERVICE_ROLE_KEY)
-- Admin: sunder.v@outlook.com, UUID: ab149df2-75bc-4d76-bd18-b357bbf6da36
+- Admin: sunder.v@outlook.com
 
 ## Deploy commands
 ```bash
 cd ~/Daytona/buildtrack
 vercel --prod
-vercel alias set <deployment-url> buildtrackapp.vercel.app
+vercel alias <deployment-url> buildtrackapp.vercel.app
 ```

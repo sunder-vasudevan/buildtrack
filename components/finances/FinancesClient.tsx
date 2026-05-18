@@ -421,9 +421,10 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
               </div>
 
               {incomes.length === 0 ? (
-                <div className="text-center py-6 bg-white border border-dashed border-border rounded-lg">
-                  <p className="text-xs font-semibold text-gray-700">No funds logged yet</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Log bank loans or self capital here</p>
+                <div className="flex flex-col items-center gap-3 py-12 text-center">
+                  <span className="text-4xl">💰</span>
+                  <p className="font-semibold text-gray-700">No funds recorded yet</p>
+                  <p className="text-sm text-gray-400">Tap + to record funds received</p>
                 </div>
               ) : (
                 <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
@@ -512,9 +513,17 @@ export function FinancesClient({ initialItems, totalBudget, initialIncomes, phas
               {/* Accordions list */}
               <div className="space-y-2.5">
                 {Object.keys(grouped).length === 0 ? (
-                  <div className="text-center py-10 bg-white rounded-xl border border-border/50 shadow-xs">
-                    <p className="text-xs text-muted-foreground font-semibold">No matching budget items, vendor quotes, or expenses found. 🔍</p>
-                  </div>
+                  items.length === 0 ? (
+                    <div className="flex flex-col items-center gap-3 py-12 text-center">
+                      <span className="text-4xl">🧱</span>
+                      <p className="font-semibold text-gray-700">No expenses yet</p>
+                      <p className="text-sm text-gray-400">Tap + to log your first payment</p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-10 bg-white rounded-xl border border-border/50 shadow-xs">
+                      <p className="text-xs text-muted-foreground font-semibold">No matching budget items, vendor quotes, or expenses found. 🔍</p>
+                    </div>
+                  )
                 ) : (
                   filteredCategories.map((cat) => {
                     const catItems = grouped[cat];
