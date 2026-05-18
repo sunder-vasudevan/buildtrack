@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { formatINR, daysLeft, formatDate, parseLogDescription } from "@/lib/utils";
-import { BudgetItem, DailyLog, Project, Income, Phase, Reminder } from "@/lib/types";
-import { CalendarDays, IndianRupee, X, TrendingUp, Landmark, ShieldAlert, BadgeCheck, FileText, Loader2, Edit3, Save, PencilLine, Trash2, LogOut, HelpCircle } from "lucide-react";
+import { BudgetItem, DailyLog, Project, Income, Phase, Reminder, Expense } from "@/lib/types";
+import { CalendarDays, IndianRupee, X, TrendingUp, Landmark, ShieldAlert, BadgeCheck, FileText, Loader2, Edit3, Save, PencilLine, Trash2, LogOut, HelpCircle, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { ReminderWidget, PendingTasksWidget } from "@/components/dashboard/ReminderWidget";
 import { RecentActivityWidget } from "@/components/dashboard/RecentActivityWidget";
 import { UpcomingDeliverablesWidget } from "@/components/dashboard/UpcomingDeliverablesWidget";
@@ -19,11 +20,12 @@ interface DashboardClientProps {
     incomes: Income[];
     phases: Phase[];
     reminders: Reminder[];
+    expenses: Expense[];
   };
 }
 
 export function DashboardClient({ initialData }: DashboardClientProps) {
-  const { project, budgetItems, recentLogs, incomes, phases, reminders } = initialData;
+  const { project, budgetItems, recentLogs, incomes, phases, reminders, expenses: initialExpenses } = initialData;
   const { prefs } = usePrefs();
   const [activeModal, setActiveModal] = useState<"budget" | "funds" | "spent" | "variance" | null>(null);
   const [showHelp, setShowHelp] = useState(false);
@@ -38,11 +40,13 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
   // Stateful copies for real-time responsiveness
   const [currentProject, setCurrentProject] = useState<Project | null>(project);
   const [items, setItems] = useState<BudgetItem[]>(budgetItems);
+  const [allExpenses, setAllExpenses] = useState<Expense[]>(initialExpenses ?? []);
   const [allIncomes, setAllIncomes] = useState<Income[]>(incomes);
   const [logs, setLogs] = useState<DailyLog[]>(recentLogs);
   const [allReminders, setAllReminders] = useState<Reminder[]>(reminders);
 
   // States for live budget editing
+  const [expandedPhase, setExpandedPhase] = useState<string | null>(null);
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [newBudgetValue, setNewBudgetValue] = useState("");
   const [savingBudget, setSavingBudget] = useState(false);
@@ -108,12 +112,22 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
       })
       .subscribe();
 
+    const expensesChannel = supabase
+      .channel("dashboard_expenses")
+      .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, async () => {
+        const uid = await getUserId(); if (!uid) return;
+        const { data } = await supabase.from("expenses").select("*").eq("user_id", uid).order("expense_date", { ascending: false });
+        if (data) setAllExpenses(data as Expense[]);
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(budgetChannel);
       supabase.removeChannel(incomeChannel);
       supabase.removeChannel(logsChannel);
       supabase.removeChannel(remindersChannel);
       supabase.removeChannel(projectChannel);
+      supabase.removeChannel(expensesChannel);
     };
   }, []);
 
@@ -163,7 +177,8 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
   }
 
   const totalBudget = currentProject?.total_budget ?? 21_74_500;
-  const spent = items.reduce((s, i) => s + (i.actual_cost ?? 0), 0);
+  const unlinkedExpenseTotal = allExpenses.filter((e) => !e.budget_item_id).reduce((s, e) => s + e.amount, 0);
+  const spent = items.reduce((s, i) => s + (i.actual_cost ?? 0), 0) + unlinkedExpenseTotal;
   const totalIncome = allIncomes.reduce((s, i) => s + (i.amount ?? 0), 0);
   const remaining = totalBudget - spent;
   const days = currentProject ? daysLeft(currentProject.end_date) : 0;
@@ -279,13 +294,49 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
               <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${phasePct}%` }} />
             </div>
             <div className="space-y-1 pt-1">
-              {phases.filter(ph => ph.status === "Completed" || ph.status === "In Progress").map((ph) => (
-                <div key={ph.id} className="flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full shrink-0 ${ph.status === "Completed" ? "bg-amber-500" : "bg-blue-400"}`} />
-                  <span className={`text-[11px] ${ph.status === "Completed" ? "line-through text-gray-400" : "text-gray-600"}`}>{ph.name}</span>
-                  <span className="ml-auto text-[10px] text-gray-400">{ph.status}</span>
-                </div>
-              ))}
+              {phases.filter(ph => ph.status === "Completed" || ph.status === "In Progress").map((ph) => {
+                const isOpen = expandedPhase === ph.id;
+                const deliverables = (ph.deliverables as any[] ?? []);
+                return (
+                  <div key={ph.id} className="rounded-lg border border-border overflow-hidden">
+                    <button
+                      onClick={() => setExpandedPhase(isOpen ? null : ph.id)}
+                      className="w-full flex items-center gap-2 px-3 py-2 bg-gray-50/50 hover:bg-gray-100/50 transition-colors"
+                    >
+                      <span className={`h-2 w-2 rounded-full shrink-0 ${ph.status === "Completed" ? "bg-amber-500" : "bg-blue-400"}`} />
+                      <span className={`text-[11px] font-semibold flex-1 text-left ${ph.status === "Completed" ? "line-through text-gray-400" : "text-gray-700"}`}>{ph.name}</span>
+                      <span className="text-[10px] text-gray-400">{ph.status}</span>
+                      {isOpen ? <ChevronDown className="h-3 w-3 text-gray-400" /> : <ChevronRight className="h-3 w-3 text-gray-400" />}
+                    </button>
+                    {isOpen && (
+                      <div className="px-3 py-2 space-y-2 bg-white">
+                        {/* Dates */}
+                        <div className="flex gap-4 text-[10px] text-gray-500">
+                          {ph.start_date && <span>Start: <span className="font-semibold text-gray-700">{formatDate(ph.start_date)}</span></span>}
+                          {ph.end_date && <span>End: <span className="font-semibold text-gray-700">{formatDate(ph.end_date)}</span></span>}
+                        </div>
+                        {/* Deliverables */}
+                        {deliverables.length > 0 && (
+                          <div className="space-y-1">
+                            {deliverables.map((d: any, i: number) => (
+                              <div key={i} className="flex items-center gap-1.5">
+                                <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${d.status === "Completed" ? "bg-emerald-500" : "bg-gray-300"}`} />
+                                <span className={`text-[10px] ${d.status === "Completed" ? "line-through text-gray-400" : "text-gray-600"}`}>
+                                  {typeof d === "string" ? d : d.name}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {/* Link to Tracker */}
+                        <Link href="/tracker" className="flex items-center gap-1 text-[10px] text-amber-600 font-semibold hover:underline">
+                          <ExternalLink className="h-3 w-3" /> Open in Tracker
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         );

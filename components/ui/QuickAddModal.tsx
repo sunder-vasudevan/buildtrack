@@ -535,57 +535,39 @@ function QuickReminderForm({ onClose, onSaved, initialType = "reminder" }: { onC
   );
 }
 
-type BudgetItem = { id: string; item_name: string; category: string; actual_cost: number | null; quoted_cost: number | null };
 type SimplePhase = { id: string; name: string };
-const EXPENSE_CATEGORIES = ["Labour", "Material", "Equipment", "Professional Fees", "Permits & Legal", "Misc"] as const;
+
+const EXPENSE_CATEGORIES = [
+  { value: "Labour", label: "👷 Labour", activeColor: "bg-amber-100 border-amber-400 text-amber-900" },
+  { value: "Material", label: "🧱 Material", activeColor: "bg-orange-100 border-orange-400 text-orange-900" },
+  { value: "Equipment", label: "🚜 Equipment", activeColor: "bg-blue-100 border-blue-400 text-blue-900" },
+  { value: "Fees", label: "📋 Fees", activeColor: "bg-purple-100 border-purple-400 text-purple-900" },
+  { value: "Misc", label: "🔮 Misc", activeColor: "bg-gray-100 border-gray-400 text-gray-950" },
+] as const;
 
 function QuickExpenseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [mode, setMode] = useState<"existing" | "new">("existing");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
   const [phases, setPhases] = useState<SimplePhase[]>([]);
-  const [search, setSearch] = useState("");
-  const [selectedId, setSelectedId] = useState("");
-  const [showDropdown, setShowDropdown] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
-
   const [form, setForm] = useState({
     amount: "",
-    date: new Date().toISOString().split("T")[0],
-    note: "",
-    item_name: "",
-    category: "Labour" as typeof EXPENSE_CATEGORIES[number],
+    expense_date: new Date().toISOString().split("T")[0],
+    category: "Misc",
+    description: "",
     phase_id: "",
   });
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
-      supabase.from("budget_items").select("id, item_name, category, actual_cost, quoted_cost")
-        .eq("user_id", user.id).order("category")
-        .then(({ data }) => { if (data) setBudgetItems(data as BudgetItem[]); });
       supabase.from("phases").select("id, name").eq("user_id", user.id).order("phase_number")
         .then(({ data }) => { if (data) setPhases(data as SimplePhase[]); });
     });
   }, []);
 
-  const filtered = budgetItems.filter((b) =>
-    b.item_name.toLowerCase().includes(search.toLowerCase()) ||
-    b.category.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const grouped = filtered.reduce<Record<string, BudgetItem[]>>((acc, item) => {
-    (acc[item.category] = acc[item.category] ?? []).push(item);
-    return acc;
-  }, {});
-
-  const selectedItem = budgetItems.find((b) => b.id === selectedId);
-
   async function handleSave() {
     if (!form.amount) { setError("Amount is required."); return; }
-    if (mode === "existing" && !selectedId) { setError("Select a budget item."); return; }
-    if (mode === "new" && !form.item_name) { setError("Item name is required."); return; }
     setSaving(true);
     setError("");
     const { data: { user } } = await supabase.auth.getUser();
@@ -596,30 +578,18 @@ function QuickExpenseForm({ onClose, onSaved }: { onClose: () => void; onSaved: 
       try { receiptUrl = await uploadFile(receiptFile); } catch {}
     }
 
-    if (mode === "existing") {
-      const { error: e } = await supabase.from("budget_items").update({
-        actual_cost: Number(form.amount),
-        payment_date: form.date,
-        notes: form.note || null,
-        ...(receiptUrl ? { receipt_url: receiptUrl } : {}),
-      }).eq("id", selectedId);
-      if (e) { setError(`Failed to save: ${e.message}`); setSaving(false); return; }
-    } else {
-      const { error: e } = await supabase.from("budget_items").insert({
-        item_name: form.item_name,
-        category: form.category,
-        phase_id: form.phase_id || null,
-        actual_cost: Number(form.amount),
-        payment_date: form.date,
-        notes: form.note || null,
-        receipt_url: receiptUrl,
-        user_id: user!.id,
-        project_id: project?.id,
-        status: "Paid",
-      });
-      if (e) { setError(`Failed to save: ${e.message}`); setSaving(false); return; }
-    }
+    const { error: e } = await supabase.from("expenses").insert({
+      user_id: user!.id,
+      project_id: project?.id ?? null,
+      amount: Number(form.amount),
+      expense_date: form.expense_date,
+      category: form.category,
+      description: form.description || null,
+      phase_id: form.phase_id || null,
+      receipt_url: receiptUrl,
+    });
 
+    if (e) { setError(`Failed to save: ${e.message}`); setSaving(false); return; }
     setSaving(false);
     onSaved();
     onClose();
@@ -632,110 +602,76 @@ function QuickExpenseForm({ onClose, onSaved }: { onClose: () => void; onSaved: 
         <button onClick={onClose} className="p-2 text-muted-foreground hover:bg-gray-100 rounded-full transition-colors"><X className="h-4 w-4" /></button>
       </div>
 
-      {/* Mode toggle */}
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
-        <button
-          onClick={() => setMode("existing")}
-          className={`flex-1 h-8 rounded-lg text-xs font-semibold transition-colors ${mode === "existing" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-        >
-          Existing item
-        </button>
-        <button
-          onClick={() => setMode("new")}
-          className={`flex-1 h-8 rounded-lg text-xs font-semibold transition-colors ${mode === "new" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-        >
-          New item
-        </button>
-      </div>
-
       {error && <p className="text-sm font-semibold text-red-600 bg-red-50 rounded-xl p-3 border border-red-200">{error}</p>}
 
-      {mode === "existing" ? (
-        <div>
-          <label className="text-xs font-semibold text-gray-700 block mb-1">Budget Item *</label>
-          <div className="relative">
-            <input
-              type="text"
-              value={selectedItem ? selectedItem.item_name : search}
-              onChange={(e) => { setSearch(e.target.value); setSelectedId(""); setShowDropdown(true); }}
-              onFocus={() => setShowDropdown(true)}
-              placeholder="Search budget items..."
-              className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-900 font-semibold focus:border-gray-500 focus:outline-none"
-            />
-            {showDropdown && (
-              <div className="absolute z-10 top-12 left-0 right-0 bg-white border border-border rounded-xl shadow-lg max-h-52 overflow-y-auto">
-                {Object.entries(grouped).map(([cat, items]) => (
-                  <div key={cat}>
-                    <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wide bg-gray-50 sticky top-0">{cat}</div>
-                    {items.map((item) => (
-                      <button key={item.id} className="w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 transition-colors flex justify-between items-center"
-                        onClick={() => { setSelectedId(item.id); setSearch(item.item_name); setShowDropdown(false); }}>
-                        <span className="font-semibold text-gray-900">{item.item_name}</span>
-                        {item.quoted_cost && <span className="text-gray-400 text-[10px]">₹{item.quoted_cost.toLocaleString()}</span>}
-                      </button>
-                    ))}
-                  </div>
-                ))}
-                {filtered.length === 0 && <p className="px-3 py-3 text-xs text-gray-400">No items found</p>}
-                <button className="w-full text-left px-3 py-2.5 text-xs text-emerald-700 font-semibold border-t border-border hover:bg-emerald-50 transition-colors"
-                  onClick={() => { setMode("new"); setShowDropdown(false); setSearch(""); }}>
-                  + Add new item
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <>
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">Item Name *</label>
-            <input type="text" value={form.item_name} onChange={(e) => setForm((p) => ({ ...p, item_name: e.target.value }))}
-              className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-900 font-semibold focus:border-gray-500 focus:outline-none"
-              placeholder="e.g. Steel reinforcement bars" autoFocus />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">Category *</label>
-              <select value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value as typeof EXPENSE_CATEGORIES[number] }))}
-                className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-900 font-semibold focus:border-gray-500 focus:outline-none">
-                {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">Phase (optional)</label>
-              <select value={form.phase_id} onChange={(e) => setForm((p) => ({ ...p, phase_id: e.target.value }))}
-                className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-900 font-semibold focus:border-gray-500 focus:outline-none">
-                <option value="">No phase</option>
-                {phases.map((ph) => <option key={ph.id} value={ph.id}>{ph.name}</option>)}
-              </select>
-            </div>
-          </div>
-        </>
-      )}
+      <div>
+        <label className="text-xs font-semibold text-gray-700 block mb-1">Amount (₹) *</label>
+        <input
+          type="number"
+          value={form.amount}
+          onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
+          className="w-full h-14 border border-border rounded-xl px-4 text-xl font-bold font-sans bg-white text-gray-900 focus:border-gray-500 focus:outline-none"
+          placeholder="0"
+          autoFocus
+        />
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs font-semibold text-gray-700 block mb-1">Amount (₹) *</label>
-          <input type="number" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
-            className="w-full h-11 border border-border rounded-xl px-3 text-xs font-sans font-bold bg-white text-gray-900 focus:border-gray-500 focus:outline-none"
-            placeholder="0" />
+          <label className="text-xs font-semibold text-gray-700 block mb-1">Date</label>
+          <input
+            type="date"
+            value={form.expense_date}
+            onChange={(e) => setForm((p) => ({ ...p, expense_date: e.target.value }))}
+            className="w-full h-11 border border-border rounded-xl px-3 text-xs font-sans font-semibold bg-white text-gray-900 focus:border-gray-500 focus:outline-none"
+          />
         </div>
         <div>
-          <label className="text-xs font-semibold text-gray-700 block mb-1">Date</label>
-          <input type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
-            className="w-full h-11 border border-border rounded-xl px-3 text-xs font-sans font-semibold bg-white text-gray-900 focus:border-gray-500 focus:outline-none" />
+          <label className="text-xs font-semibold text-gray-700 block mb-1">Phase (optional)</label>
+          <select
+            value={form.phase_id}
+            onChange={(e) => setForm((p) => ({ ...p, phase_id: e.target.value }))}
+            className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-900 font-semibold focus:border-gray-500 focus:outline-none"
+          >
+            <option value="">No phase</option>
+            {phases.map((ph) => <option key={ph.id} value={ph.id}>{ph.name}</option>)}
+          </select>
         </div>
       </div>
 
       <div>
-        <label className="text-xs font-semibold text-gray-700 block mb-1">Note (optional)</label>
-        <input type="text" value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))}
-          className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-900 font-medium focus:border-gray-500 focus:outline-none"
-          placeholder="Any details..." />
+        <label className="text-xs font-semibold text-gray-700 block mb-1.5">Category</label>
+        <div className="flex flex-wrap gap-2">
+          {EXPENSE_CATEGORIES.map((cat) => (
+            <button
+              key={cat.value}
+              type="button"
+              onClick={() => setForm((p) => ({ ...p, category: cat.value }))}
+              className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
+                form.category === cat.value
+                  ? `${cat.activeColor} shadow-xs`
+                  : "bg-white border-border text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div>
-        <label className="text-xs font-semibold text-gray-700 block mb-1">Receipt / Photo (optional)</label>
+        <label className="text-xs font-semibold text-gray-700 block mb-1">What for (optional)</label>
+        <input
+          type="text"
+          value={form.description}
+          onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+          className="w-full h-11 border border-border rounded-xl px-3 text-xs bg-white text-gray-900 font-medium focus:border-gray-500 focus:outline-none"
+          placeholder="e.g. Steel rods, Labour payment to Ravi..."
+        />
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold text-gray-700 block mb-1">Receipt photo (optional)</label>
         <label className="flex items-center gap-3 w-full h-12 border-2 border-dashed border-emerald-200 bg-emerald-50/10 hover:bg-emerald-50/30 rounded-xl px-3.5 cursor-pointer hover:border-emerald-400 transition-colors">
           <Upload className="h-4 w-4 text-emerald-600 flex-shrink-0" />
           <span className="text-xs text-emerald-700 font-semibold truncate">
@@ -747,7 +683,7 @@ function QuickExpenseForm({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
       <div className="flex gap-3 pt-2">
         <button onClick={onClose} className="flex-1 h-12 border border-border text-gray-900 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors">Cancel</button>
-        <button onClick={handleSave} disabled={saving}
+        <button onClick={handleSave} disabled={saving || !form.amount}
           className="flex-1 h-12 bg-gray-950 hover:bg-gray-900 text-white rounded-xl font-semibold text-sm disabled:opacity-40 flex items-center justify-center gap-2 transition-colors">
           {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Save Expense"}
         </button>

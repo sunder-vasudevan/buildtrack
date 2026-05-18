@@ -193,3 +193,18 @@ export interface Reminder {
   done: boolean;
   created_at: string;
 }
+
+export interface Expense {
+  id: string;
+  user_id: string;
+  project_id: string | null;
+  amount: number;
+  expense_date: string;
+  category: string;
+  description: string | null;
+  phase_id: string | null;
+  deliverable_name: string | null;
+  budget_item_id: string | null;
+  receipt_url: string | null;
+  created_at: string;
+}
