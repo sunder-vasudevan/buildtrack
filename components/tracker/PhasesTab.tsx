@@ -14,6 +14,17 @@ const STATUS_COLORS: Record<string, string> = {
   Delayed: "bg-red-100 text-red-700",
 };
 
+const PHASE_COLORS = [
+  { border: "border-l-violet-500", bg: "bg-violet-50", accent: "text-violet-600" },
+  { border: "border-l-blue-500",   bg: "bg-blue-50",   accent: "text-blue-600" },
+  { border: "border-l-emerald-500",bg: "bg-emerald-50",accent: "text-emerald-600" },
+  { border: "border-l-amber-500",  bg: "bg-amber-50",  accent: "text-amber-600" },
+  { border: "border-l-rose-500",   bg: "bg-rose-50",   accent: "text-rose-600" },
+  { border: "border-l-cyan-500",   bg: "bg-cyan-50",   accent: "text-cyan-600" },
+  { border: "border-l-orange-500", bg: "bg-orange-50", accent: "text-orange-600" },
+  { border: "border-l-pink-500",   bg: "bg-pink-50",   accent: "text-pink-600" },
+];
+
 export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
   type Deliverable = { name: string; planned_due: string | null; actual_due: string | null };
 
@@ -184,8 +195,10 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
           const isOpen = expanded === phase.id;
           const isOverdue = phase.status !== "Completed" && new Date(phase.end_date) < new Date();
 
+          const phaseColor = PHASE_COLORS[(phase.phase_number - 1) % PHASE_COLORS.length];
+
           return (
-            <div key={phase.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden ${isOverdue ? "border-red-200" : "border-border"}`}>
+            <div key={phase.id} className={`${phaseColor.bg} rounded-xl shadow-sm border-l-4 border border-border overflow-hidden ${phaseColor.border} ${isOverdue ? "border-red-200" : ""}`}>
               <button
                 onClick={() => {
                   setExpanded(isOpen ? null : phase.id);
@@ -198,7 +211,7 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-gray-400">Phase {phase.phase_number}</span>
+                      <span className={`text-xs font-bold ${phaseColor.accent}`}>Phase {phase.phase_number}</span>
                       {isOverdue && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Overdue</span>}
                     </div>
                     <h3 className="font-semibold text-gray-900 text-sm mt-0.5">{phase.name}</h3>

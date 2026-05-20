@@ -11,6 +11,7 @@ import { UpcomingDeliverablesWidget } from "@/components/dashboard/UpcomingDeliv
 import { ExpenseForm } from "@/components/finances/ExpenseForm";
 import { supabase } from "@/lib/supabase";
 import { usePrefs } from "@/lib/prefs-context";
+import { APP_VERSION } from "@/lib/version";
 
 interface DashboardClientProps {
   initialData: {
@@ -62,75 +63,6 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     }
   }, [currentProject]);
 
-  useEffect(() => {
-    async function getUserId() {
-      const { data: { user } } = await supabase.auth.getUser();
-      return user?.id ?? null;
-    }
-
-    const budgetChannel = supabase
-      .channel("dashboard_budget_items")
-      .on("postgres_changes", { event: "*", schema: "public", table: "budget_items" }, async () => {
-        const uid = await getUserId(); if (!uid) return;
-        const { data } = await supabase.from("budget_items").select("*").eq("user_id", uid).order("category");
-        if (data) setItems(data as BudgetItem[]);
-      })
-      .subscribe();
-
-    const incomeChannel = supabase
-      .channel("dashboard_income")
-      .on("postgres_changes", { event: "*", schema: "public", table: "income" }, async () => {
-        const uid = await getUserId(); if (!uid) return;
-        const { data } = await supabase.from("income").select("*").eq("user_id", uid).order("date_received", { ascending: false });
-        if (data) setAllIncomes(data as Income[]);
-      })
-      .subscribe();
-
-    const logsChannel = supabase
-      .channel("dashboard_logs")
-      .on("postgres_changes", { event: "*", schema: "public", table: "daily_logs" }, async () => {
-        const uid = await getUserId(); if (!uid) return;
-        const { data } = await supabase.from("daily_logs").select("*").eq("user_id", uid).order("log_date", { ascending: false }).limit(3);
-        if (data) setLogs(data as DailyLog[]);
-      })
-      .subscribe();
-
-    const remindersChannel = supabase
-      .channel("dashboard_reminders")
-      .on("postgres_changes", { event: "*", schema: "public", table: "reminders" }, async () => {
-        const uid = await getUserId(); if (!uid) return;
-        const { data } = await supabase.from("reminders").select("*").eq("user_id", uid).eq("done", false).order("due_date", { ascending: true });
-        if (data) setAllReminders(data as Reminder[]);
-      })
-      .subscribe();
-
-    const projectChannel = supabase
-      .channel("dashboard_projects")
-      .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, async () => {
-        const uid = await getUserId(); if (!uid) return;
-        const { data } = await supabase.from("projects").select("*").eq("user_id", uid).maybeSingle();
-        if (data) setCurrentProject(data as Project);
-      })
-      .subscribe();
-
-    const expensesChannel = supabase
-      .channel("dashboard_expenses")
-      .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, async () => {
-        const uid = await getUserId(); if (!uid) return;
-        const { data } = await supabase.from("expenses").select("*").eq("user_id", uid).order("expense_date", { ascending: false });
-        if (data) setAllExpenses(data as Expense[]);
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(budgetChannel);
-      supabase.removeChannel(incomeChannel);
-      supabase.removeChannel(logsChannel);
-      supabase.removeChannel(remindersChannel);
-      supabase.removeChannel(projectChannel);
-      supabase.removeChannel(expensesChannel);
-    };
-  }, []);
 
   async function handleSaveBudget() {
     const val = Number(newBudgetValue);
@@ -445,7 +377,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
 
       {/* Footer */}
       <div className="pt-8 pb-16 text-center shrink-0">
-        <button onClick={() => setShowChangelog(true)} className="text-xs text-muted-foreground cursor-pointer underline-offset-2 hover:text-gray-600 transition-colors">v2.3.0 · 20 May 2026 · Built in Hyderabad with ❤️</button>
+        <button onClick={() => setShowChangelog(true)} className="text-xs text-muted-foreground cursor-pointer underline-offset-2 hover:text-gray-600 transition-colors">{APP_VERSION}</button>
       </div>
 
       {/* ================================= DETAIL MODALS ================================= */}
