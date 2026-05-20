@@ -26,6 +26,9 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
   const [uploading, setUploading] = useState<string | null>(null);
   const [photos, setPhotos] = useState<Record<string, string>>({});
   const [phaseReceipts, setPhaseReceipts] = useState<{id: string; item_name: string; actual_cost: number | null; receipt_url: string}[]>([]);
+  const [showAddPhase, setShowAddPhase] = useState(false);
+  const [newPhase, setNewPhase] = useState<{ name: string; start_date: string; end_date: string; deliverables: string[] }>({ name: "", start_date: "", end_date: "", deliverables: [] });
+  const [addingPhase, setAddingPhase] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadTarget, setUploadTarget] = useState<{ phaseId: string, index: number } | null>(null);
@@ -131,6 +134,27 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
     setUploading(null);
     setUploadTarget(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+
+  async function insertPhase() {
+    if (!newPhase.name || !newPhase.start_date || !newPhase.end_date) return;
+    setAddingPhase(true);
+    const { data, error } = await supabase.from("phases").insert({
+      project_id: phases[0].project_id,
+      phase_number: phases.length + 1,
+      name: newPhase.name,
+      start_date: newPhase.start_date,
+      end_date: newPhase.end_date,
+      status: "Not Started",
+      deliverables: newPhase.deliverables.filter(Boolean).map(name => ({ name, planned_start: null, planned_due: null, actual_due: null })),
+    }).select().single();
+    setAddingPhase(false);
+    if (!error && data) {
+      setPhases(prev => [...prev, data as Phase]);
+      setShowAddPhase(false);
+      setNewPhase({ name: "", start_date: "", end_date: "", deliverables: [] });
+    }
   }
 
   return (
@@ -384,6 +408,97 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
           );
         })}
       </div>
+
+      <button
+        onClick={() => setShowAddPhase(true)}
+        className="w-full h-12 bg-gray-900 text-white rounded-xl font-semibold text-sm mt-2"
+      >
+        + Add Phase
+      </button>
+
+      {showAddPhase && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
+            <h2 className="text-base font-bold text-gray-900">Add Phase</h2>
+
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Phase Name</label>
+              <input
+                type="text"
+                value={newPhase.name}
+                onChange={(e) => setNewPhase(p => ({ ...p, name: e.target.value }))}
+                placeholder="e.g. Parapet Wall"
+                className="w-full h-10 border border-border rounded-lg px-3 text-sm focus:outline-none focus:border-gray-400"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-gray-700 block mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={newPhase.start_date}
+                  onChange={(e) => setNewPhase(p => ({ ...p, start_date: e.target.value }))}
+                  className="w-full h-10 border border-border rounded-lg px-3 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-700 block mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={newPhase.end_date}
+                  onChange={(e) => setNewPhase(p => ({ ...p, end_date: e.target.value }))}
+                  className="w-full h-10 border border-border rounded-lg px-3 text-sm"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-700 block mb-1">Deliverables</label>
+              <div className="space-y-2">
+                {newPhase.deliverables.map((d, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={d}
+                      onChange={(e) => setNewPhase(p => ({ ...p, deliverables: p.deliverables.map((x, j) => j === i ? e.target.value : x) }))}
+                      className="flex-1 h-9 border border-border rounded-lg px-3 text-sm focus:outline-none focus:border-gray-400"
+                    />
+                    <button
+                      onClick={() => setNewPhase(p => ({ ...p, deliverables: p.deliverables.filter((_, j) => j !== i) }))}
+                      className="text-gray-400 hover:text-red-500 text-lg leading-none flex-shrink-0"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => setNewPhase(p => ({ ...p, deliverables: [...p.deliverables, ""] }))}
+                  className="text-xs text-blue-600 font-medium hover:text-blue-800"
+                >
+                  + Add Deliverable
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => { setShowAddPhase(false); setNewPhase({ name: "", start_date: "", end_date: "", deliverables: [] }); }}
+                className="flex-1 h-11 border border-border rounded-xl text-sm font-semibold text-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={insertPhase}
+                disabled={addingPhase || !newPhase.name || !newPhase.start_date || !newPhase.end_date}
+                className="flex-1 h-11 bg-gray-900 text-white rounded-xl text-sm font-semibold disabled:opacity-50"
+              >
+                {addingPhase ? "Saving..." : "Add Phase"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

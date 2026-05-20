@@ -28,10 +28,11 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
   const { project, budgetItems, recentLogs, incomes, phases, reminders, expenses: initialExpenses } = initialData;
   const { prefs } = usePrefs();
   const [activeModal, setActiveModal] = useState<"budget" | "funds" | "spent" | "variance" | null>(null);
-  const [showHelp, setShowHelp] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
 
   const CHANGELOG = [
+    { version: "v2.3.0", date: "19 May 2026", items: ["Add Phase modal — add new phases to live projects"] },
+  { version: "v2.2.0", date: "18 May 2026", items: ["Sign-out & Help on every page", "Forgot password flow", "Quick Expense entry", "Photo persistence via cloud storage", "Dashboard widget toggles", "Edit project details"] },
     { version: "v2.0.0", date: "17 May 2026", items: ["Multi-user login & accounts", "Setup wizard for new projects", "Backblaze B2 cloud storage", "Add reminders to phone calendar", "Display preferences per user"] },
     { version: "v1.0.0", date: "12 May 2026", items: ["Financial dashboard", "Net Cash Balance banner", "Reminders widget", "QuickAdd FAB"] },
     { version: "v0.1.0", date: "11 May 2026", items: ["First release — phases & deliverables", "Daily logs & budget tracking"] },
@@ -270,14 +271,6 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
           </div>
           <p className="text-sm text-muted-foreground">{currentProject?.location ?? ""}</p>
         </div>
-        <div className="flex items-center gap-2 mt-1">
-          <button onClick={() => setShowHelp(true)} className="text-gray-400 hover:text-gray-700 transition-colors" title="Help">
-            <HelpCircle className="h-4 w-4" />
-          </button>
-          <button onClick={async () => { await supabase.auth.signOut(); window.location.href = "/auth/login"; }} className="text-gray-400 hover:text-red-500 transition-colors" title="Sign out">
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
       </div>
 
       {/* Phase Progress Section */}
@@ -452,68 +445,8 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
 
       {/* Footer */}
       <div className="pt-8 pb-16 text-center shrink-0">
-        <button onClick={() => setShowChangelog(true)} className="text-xs text-muted-foreground cursor-pointer underline-offset-2 hover:text-gray-600 transition-colors">v2.0.0 · 17 May 2026 · Built in Hyderabad with ❤️</button>
+        <button onClick={() => setShowChangelog(true)} className="text-xs text-muted-foreground cursor-pointer underline-offset-2 hover:text-gray-600 transition-colors">v2.2.0 · 18 May 2026 · Built in Hyderabad with ❤️</button>
       </div>
-
-      {/* Help Modal */}
-      {showHelp && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center">
-          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
-            <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                <HelpCircle className="h-5 w-5 text-gray-700" />
-                <h2 className="font-bold text-gray-900">Help Guide</h2>
-              </div>
-              <button onClick={() => setShowHelp(false)} className="p-2 text-muted-foreground"><X className="h-4 w-4" /></button>
-            </div>
-            <div className="overflow-y-auto p-4 space-y-5 text-sm">
-              {[
-                { title: "Navigation", items: [
-                  { label: "Overview", desc: "Dashboard: budget summary, net cash balance, recent logs, reminders" },
-                  { label: "Tracker", desc: "Phases, daily logs, uploaded plans & specs" },
-                  { label: "Finances", desc: "Budget items + funds received" },
-                  { label: "Project Info", desc: "Project details, team, exports, preferences, backup" },
-                ]},
-                { title: "Quick Add (+ button)", items: [
-                  { label: "Log Work", desc: "Daily site progress with photos, phase & deliverable" },
-                  { label: "Add Expense", desc: "Record a payment against a budget item" },
-                  { label: "Add Funds", desc: "Record money received (loan, contribution, etc.)" },
-                  { label: "Reminder", desc: "Set a reminder with a due date" },
-                  { label: "Wish List", desc: "Add backlog items or future ideas" },
-                  { label: "Note", desc: "Quick freeform note" },
-                ]},
-                { title: "Phases & Deliverables", items: [
-                  { label: "Phases", desc: "Main build stages (Foundation, Walls, Finishes…)" },
-                  { label: "Deliverables", desc: "Specific tasks within each phase — turns green when complete, red if overdue" },
-                ]},
-                { title: "Finances", items: [
-                  { label: "Budget", desc: "All items by category — quoted vs actual cost" },
-                  { label: "Funds", desc: "All capital received — source, amount, date" },
-                  { label: "Net Cash Balance", desc: "Total funds received − total expenses paid" },
-                ]},
-                { title: "Troubleshooting", items: [
-                  { label: "Data not showing", desc: "Refresh the page" },
-                  { label: "Photos not uploading", desc: "Check internet connection; max 10MB" },
-                  { label: "Can't log in", desc: "Check your email and password" },
-                ]},
-              ].map(({ title, items }) => (
-                <div key={title}>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">{title}</p>
-                  <div className="space-y-2">
-                    {items.map(({ label, desc }) => (
-                      <div key={label} className="bg-gray-50 rounded-lg px-3 py-2">
-                        <p className="font-semibold text-gray-800 text-xs">{label}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              <p className="text-xs text-center text-gray-400 pb-4">v2.0.0 · buildtrackapp.vercel.app</p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ================================= DETAIL MODALS ================================= */}
 
@@ -787,7 +720,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
 
       {/* Changelog Modal */}
       {showChangelog && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-[60] bg-black/50 flex items-end sm:items-center justify-center">
           <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[80vh] flex flex-col">
             <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
               <h2 className="font-bold text-gray-900">What&apos;s New</h2>
