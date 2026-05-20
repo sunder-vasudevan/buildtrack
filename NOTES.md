@@ -110,7 +110,11 @@ For **every repo**:
 - github.com/settings/sessions — revoke unknown sessions
 - github.com/settings/apps — revoke OAuth apps you don't recognise
 
-### Step 6 — Migrate from npm to pnpm
+### Step 6 — Migrate from npm to pnpm + add Socket.dev
+
+**Why:** npm's flat node_modules allows phantom dependencies — transitive packages your code never declared can be required and executed. Any package in the tree can run arbitrary shell commands via install scripts during `npm install`. pnpm fixes both by using a symlinked store where each package can only see what it declared.
+
+**Evaluated alternatives:** pnpm (best drop-in), Yarn Berry PnP (strictest, needs compat check), Bun (fastest, not fully stable for Next.js yet), Deno (no node_modules at all, best for non-Next.js scripts). Verdict: **pnpm now, watch Bun for future greenfield apps.**
 
 pnpm is faster, stricter about phantom dependencies, and has a better security model (isolated node_modules by default).
 
@@ -144,7 +148,11 @@ git rm package-lock.json
 git commit -m "chore: migrate from npm to pnpm"
 ```
 
-**Apply to all future repos** — start new projects with `pnpm create next-app` instead of `npx create-next-app`.
+**Also: install Socket.dev GitHub App**
+- Go to socket.dev → Install GitHub App → grant access to all repos
+- Free tier scans every PR's dependency changes for supply chain attacks (detects new attacks before a CVE exists — Dependabot only catches known CVEs)
+
+**Apply to all future repos** — start new projects with `pnpm create next-app` instead of `npx create-next-app`. Add Socket.dev on day one.
 
 ---
 

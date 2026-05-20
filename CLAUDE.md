@@ -43,11 +43,60 @@ Dependabot (configured in `.github/dependabot.yml`) keeps SHAs current automatic
 
 ---
 
-### 3. Dependency Management
+### 3. Package Manager — use pnpm, not npm
 
-- `.npmrc` must contain `save-exact=true` so installs pin exact versions
-- `vercel.json` (or equivalent deploy config) must run `npm ci && npm audit --audit-level=high` as the install command to block vulnerable packages at deploy time
+**Why npm is risky ("ghost code" problem)**
+
+npm installs everything into a flat `node_modules` and hoists transitive dependencies to the top level. This means:
+- **Phantom dependencies**: your code can accidentally `require()` a package you never declared. If that transitive package is later compromised or removed, your build breaks or executes malicious code you never audited.
+- **Install scripts**: `preinstall`/`postinstall`/`prepare` hooks in any package in the tree run arbitrary shell commands during `npm install`. A hijacked transitive dep can exfiltrate secrets, modify source files, or install backdoors at install time.
+- **Semver ranges** (`^`, `~`) silently resolve to newer versions on each fresh install unless locked — a window for compromise between lockfile updates.
+
+**Use pnpm instead**
+
+pnpm fixes all three:
+- Uses a content-addressable global store + symlinks. Each package can only access what it explicitly declares — phantom dependencies are structurally impossible.
+- `--ignore-scripts` is easy to enforce globally; only allow install scripts for explicitly trusted packages.
+- Lockfile (`pnpm-lock.yaml`) is stricter and more deterministic than `package-lock.json`.
+
+**Alternatives evaluated**
+
+| Tool | Strengths | When to use |
+|---|---|---|
+| **pnpm** | Best npm drop-in; strict isolation; fast | Default for all projects |
+| **Yarn Berry (PnP)** | Zero node_modules; strictest isolation possible | New projects where all deps support PnP |
+| **Bun** | Fastest installs + runtime; built-in bundler | Greenfield projects, not yet production-stable for all Next.js features |
+| **Deno** | No node_modules at all; URL imports; built-in permissions sandbox | Non-Next.js server tooling / scripts |
+
+**Standard config for every repo**
+
+```bash
+# Install
+pnpm install --frozen-lockfile
+
+# Audit
+pnpm audit --audit-level=high
+
+# Add a new package (never run install scripts blindly)
+pnpm add <pkg> --ignore-scripts
+# then inspect the package before re-enabling scripts if needed
+```
+
+`vercel.json` install command:
+```json
+{ "installCommand": "pnpm install --frozen-lockfile && pnpm audit --audit-level=high" }
+```
+
+**Additional layer: Socket.dev**
+
+Dependabot and `npm audit` only catch *known* CVEs. Socket.dev detects *new* supply chain attacks by analysing package behaviour (network calls, filesystem access, obfuscated code) before a CVE exists. Install the free GitHub App on every repo: it scans each PR's dependency changes and blocks suspicious packages proactively.
+
+### 4. Dependency Management
+
+- `pnpm-lock.yaml` must be committed and kept up to date — never delete it
+- `vercel.json` (or equivalent deploy config) must run `pnpm install --frozen-lockfile && pnpm audit --audit-level=high` as the install command to block vulnerable packages at deploy time
 - All PRs against `main` run the Dependency Review Action (`.github/workflows/dependency-review.yml`) which blocks high/critical new vulnerabilities
+- Add the **Socket.dev GitHub App** to every repo for proactive supply chain scanning
 
 ---
 
