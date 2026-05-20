@@ -22,9 +22,9 @@ export default function MorePage() {
   const [plans, setPlans] = useState<PlanDocument[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check session synchronously first — avoids tab bar flash
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email === ADMIN_EMAIL) setIsAdmin(true);
     });
@@ -35,14 +35,20 @@ export default function MorePage() {
 
       setIsAdmin(user.email === ADMIN_EMAIL);
 
-      const [projectRes, windowsRes, documentsRes, remindersRes] = await Promise.all([
-        supabase.from("projects").select("*").eq("user_id", user.id).maybeSingle(),
-        supabase.from("windows").select("*").order("window_id"),
+      // Load project first so we can filter windows by project_id
+      const { data: projectData } = await supabase.from("projects").select("*").eq("user_id", user.id).maybeSingle();
+      setProject(projectData as Project | null);
+      setLoading(false);
+
+      // Load remaining data in parallel, filtered correctly
+      const [windowsRes, documentsRes, remindersRes] = await Promise.all([
+        projectData
+          ? supabase.from("windows").select("*").eq("project_id", projectData.id).order("window_id")
+          : Promise.resolve({ data: [] }),
         supabase.from("documents").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
         supabase.from("reminders").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       ]);
 
-      setProject(projectRes.data as Project | null);
       setWindows((windowsRes.data ?? []) as Window[]);
       setPlans((documentsRes.data ?? []) as PlanDocument[]);
       setReminders((remindersRes.data ?? []) as Reminder[]);
@@ -79,7 +85,14 @@ export default function MorePage() {
       </div>
 
       <div className="flex-1 overflow-y-auto mb-safe">
-        {tab === "info" && (
+        {loading && (
+          <div className="space-y-3 pt-2">
+            {[1,2,3].map((i) => (
+              <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
+            ))}
+          </div>
+        )}
+        {!loading && tab === "info" && (
           <ProjectInfoTab
             project={project}
             initialWindows={windows}
@@ -87,8 +100,8 @@ export default function MorePage() {
             initialReminders={reminders}
           />
         )}
-        {tab === "backup" && <BackupTab project={project} />}
-        {tab === "users" && isAdmin && <UsersTab />}
+        {!loading && tab === "backup" && <BackupTab project={project} />}
+        {!loading && tab === "users" && isAdmin && <UsersTab />}
 
         <div className="pt-8 pb-16 flex flex-col items-center gap-3 shrink-0">
           <button

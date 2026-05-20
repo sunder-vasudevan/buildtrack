@@ -1,12 +1,14 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { FinancesClient } from "@/components/finances/FinancesClient";
 import { Income, BudgetItem, Expense } from "@/lib/types";
 import { APP_VERSION } from "@/lib/version";
+import FinancesLoading from "./loading";
 
 export const dynamic = "force-dynamic";
 
-export default async function FinancesPage() {
+async function FinancesContent() {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
@@ -19,35 +21,31 @@ export default async function FinancesPage() {
     supabase.from("expenses").select("*").eq("user_id", user.id).order("expense_date", { ascending: false }),
   ]);
 
-  if (budgetRes.error) console.error(budgetRes.error);
-  if (projectRes.error) console.error(projectRes.error);
-  if (phasesRes.error) console.error(phasesRes.error);
-  if (incomeRes.error && incomeRes.error.code !== "42P01") console.error(incomeRes.error);
-  if (expensesRes.error && expensesRes.error.code !== "42P01") console.error(expensesRes.error);
+  return (
+    <>
+      <FinancesClient
+        initialItems={(budgetRes.data ?? []) as BudgetItem[]}
+        totalBudget={(projectRes.data?.total_budget as number) ?? 0}
+        initialIncomes={(incomeRes.data ?? []) as Income[]}
+        initialExpenses={(expensesRes.data ?? []) as Expense[]}
+        phases={(phasesRes.data ?? []) as any[]}
+      />
+      <div className="pt-8 pb-16 text-center shrink-0">
+        <p className="text-xs text-muted-foreground">{APP_VERSION}</p>
+      </div>
+    </>
+  );
+}
 
-  const items = (budgetRes.data ?? []) as BudgetItem[];
-  const totalBudget = (projectRes.data?.total_budget as number) ?? 0;
-  const incomes = (incomeRes.data ?? []) as Income[];
-  const phases = (phasesRes.data ?? []) as any[];
-  const expenses = (expensesRes.data ?? []) as Expense[];
-
+export default function FinancesPage() {
   return (
     <div className="p-4 flex flex-col h-[calc(100vh-4rem)] overflow-y-auto">
       <div className="pt-4 pb-2">
         <h1 className="text-xl font-bold text-gray-900">Finances</h1>
       </div>
-
-      <FinancesClient
-        initialItems={items}
-        totalBudget={totalBudget}
-        initialIncomes={incomes}
-        initialExpenses={expenses}
-        phases={phases}
-      />
-
-      <div className="pt-8 pb-16 text-center shrink-0">
-        <p className="text-xs text-muted-foreground">{APP_VERSION}</p>
-      </div>
+      <Suspense fallback={<FinancesLoading />}>
+        <FinancesContent />
+      </Suspense>
     </div>
   );
 }

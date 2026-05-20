@@ -46,7 +46,5 @@ projects, phases, budget_items (receipt_url), daily_logs, payments, income, work
 - Finances: Unplanned Expenses section with inline Link flow (create phase/deliverable on spot)
 - Dashboard spent: double-count-safe formula
 
-## Open / Parked
-- Vasudha's old Supabase Storage photo URLs not migrated to B2
-- VendorsTab exists but unreachable from nav
-- TEST_REPORT.md manual tests pending
+## Parked Items
+→ See [Helm parking lot](https://usehelm.vercel.app) — project: BuildTrack

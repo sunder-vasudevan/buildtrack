@@ -13,26 +13,30 @@ const s3 = new S3Client({
 });
 
 export async function POST(req: NextRequest) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { filename, contentType } = await req.json();
-  if (!filename || !contentType) {
-    return NextResponse.json({ error: "Missing filename or contentType" }, { status: 400 });
+    const { filename, contentType } = await req.json();
+    if (!filename || !contentType) {
+      return NextResponse.json({ error: "Missing filename or contentType" }, { status: 400 });
+    }
+
+    const key = `${user.id}/${Date.now()}-${filename.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
+
+    const command = new PutObjectCommand({
+      Bucket: process.env.B2_BUCKET_NAME!,
+      Key: key,
+      ContentType: contentType,
+    });
+
+    const signedUrl = await getSignedUrl(s3, command, { expiresIn: 300 });
+    const publicUrl = `https://${process.env.B2_BUCKET_NAME}.${process.env.B2_ENDPOINT}/${key}`;
+
+    return NextResponse.json({ signedUrl, publicUrl });
+  } catch (err) {
+    console.error("[upload] error:", err);
+    return NextResponse.json({ error: String(err) }, { status: 500 });
   }
-
-  const key = `${user.id}/${Date.now()}-${filename.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
-
-  const command = new PutObjectCommand({
-    Bucket: process.env.B2_BUCKET_NAME!,
-    Key: key,
-    ContentType: contentType,
-  });
-
-  const signedUrl = await getSignedUrl(s3, command, { expiresIn: 300 });
-
-  const publicUrl = `https://${process.env.B2_BUCKET_NAME}.${process.env.B2_ENDPOINT}/${key}`;
-
-  return NextResponse.json({ signedUrl, publicUrl, key });
 }

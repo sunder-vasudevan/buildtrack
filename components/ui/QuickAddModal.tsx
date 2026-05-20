@@ -590,10 +590,8 @@ function QuickExpenseForm({ onClose, onSaved }: { onClose: () => void; onSaved: 
     if (receiptFile) {
       try {
         receiptUrl = await uploadFile(receiptFile);
-      } catch (err) {
-        setError(`Receipt upload failed: ${err instanceof Error ? err.message : "Unknown error"}`);
-        setSaving(false);
-        return;
+      } catch {
+        // Upload failed — save expense without receipt
       }
     }
 

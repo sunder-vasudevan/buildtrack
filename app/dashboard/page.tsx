@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { BudgetItem, DailyLog, Project, Income, Phase, Reminder, Expense } from "@/lib/types";
 import { DashboardClient } from "@/components/dashboard/DashboardClient";
+import DashboardLoading from "./loading";
 
 async function getData() {
   const supabase = await createSupabaseServerClient();
@@ -19,14 +21,6 @@ async function getData() {
     supabase.from("expenses").select("*").eq("user_id", userId).order("expense_date", { ascending: false }),
   ]);
 
-  if (projectRes.error) console.error("Error fetching project:", projectRes.error);
-  if (budgetRes.error) console.error("Error fetching budget:", budgetRes.error);
-  if (logsRes.error) console.error("Error fetching logs:", logsRes.error);
-  if (incomeRes.error && incomeRes.error.code !== "42P01") console.error("Error fetching income:", incomeRes.error);
-  if (phasesRes.error) console.error("Error fetching phases:", phasesRes.error);
-  if (remindersRes.error) console.error("Error fetching reminders:", remindersRes.error);
-  if (expensesRes.error && expensesRes.error.code !== "42P01") console.error("Error fetching expenses:", expensesRes.error);
-
   return {
     project: projectRes.data as Project | null,
     budgetItems: (budgetRes.data ?? []) as BudgetItem[],
@@ -38,8 +32,15 @@ async function getData() {
   };
 }
 
-export default async function DashboardPage() {
+async function DashboardContent() {
   const initialData = await getData();
-
   return <DashboardClient initialData={initialData} />;
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<DashboardLoading />}>
+      <DashboardContent />
+    </Suspense>
+  );
 }

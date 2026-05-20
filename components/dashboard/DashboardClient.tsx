@@ -32,6 +32,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
   const [showChangelog, setShowChangelog] = useState(false);
 
   const CHANGELOG = [
+    { version: "v2.3.1", date: "20 May 2026", items: ["Edit Quick Expenses inline — fix amount, date, category, description"] },
     { version: "v2.3.0", date: "19 May 2026", items: ["Add Phase modal — add new phases to live projects"] },
   { version: "v2.2.0", date: "18 May 2026", items: ["Sign-out & Help on every page", "Forgot password flow", "Quick Expense entry", "Photo persistence via cloud storage", "Dashboard widget toggles", "Edit project details"] },
     { version: "v2.0.0", date: "17 May 2026", items: ["Multi-user login & accounts", "Setup wizard for new projects", "Backblaze B2 cloud storage", "Add reminders to phone calendar", "Display preferences per user"] },
