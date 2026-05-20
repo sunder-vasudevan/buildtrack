@@ -49,6 +49,52 @@ projects, vendors, phases, windows, budget_items, daily_logs, payments, income, 
 - Phase actual dates auto-derived from deliverable dates on save
 - Deliverable status: green tick when actual_due set, red circle if overdue
 
+## TODO @ Home (Mac) — Security hardening
+
+Everything below requires the GitHub web UI or local terminal on your Mac.
+The code changes are already pushed on branch `claude/investigate-github-access-cbzwL` — merge that PR first, then do these.
+
+### Step 1 — Merge the security PR
+- Open the PR for branch `claude/investigate-github-access-cbzwL` on GitHub
+- Review and merge into `main`
+
+### Step 2 — Branch protection on `main` (GitHub UI)
+For **every repo** (start with `buildtrack`):
+1. Go to repo → Settings → Branches → **Add branch ruleset**
+2. Set ruleset name: `main protection`
+3. Target: `main`
+4. Enable:
+   - Require a pull request before merging
+   - Required approvals: 1
+   - Dismiss stale reviews on new push
+   - Block force pushes
+   - Restrict deletions
+
+### Step 3 — Rotate all secrets (precaution after GitHub breach)
+- Supabase: Dashboard → Settings → API → regenerate `anon` and `service_role` keys → update in Vercel env vars
+- Vercel: Settings → Environment Variables — verify no stale keys
+- GitHub: github.com/settings/tokens → revoke any unused personal access tokens
+
+### Step 4 — Enable Secret Scanning + Push Protection
+For **every repo**:
+- Settings → Security → **Secret scanning** → Enable
+- Also enable **Push protection** (blocks commits containing secrets)
+
+### Step 5 — Review account security
+- github.com/settings/security-log — look for unexpected logins
+- github.com/settings/sessions — revoke unknown sessions
+- github.com/settings/apps — revoke OAuth apps you don't recognise
+
+### Step 6 — Apply to future repos
+When starting any new app, copy from `buildtrack`:
+- `.github/workflows/audit.yml`
+- `.github/workflows/dependency-review.yml`
+- `.github/dependabot.yml`
+- `CLAUDE.md`
+Then do Steps 2–5 for that repo before first deploy.
+
+---
+
 ## Open / Parked
 - New deliverable names typed in log form not written back to phases.deliverables
 - StatusBadge defined inside QuickAddModal.tsx (cosmetic, low priority)
