@@ -110,13 +110,51 @@ For **every repo**:
 - github.com/settings/sessions — revoke unknown sessions
 - github.com/settings/apps — revoke OAuth apps you don't recognise
 
-### Step 6 — Apply to future repos
+### Step 6 — Migrate from npm to pnpm
+
+pnpm is faster, stricter about phantom dependencies, and has a better security model (isolated node_modules by default).
+
+**Install pnpm on Mac (if not already)**
+```bash
+brew install pnpm
+```
+
+**Migrate this repo**
+```bash
+# Remove npm artifacts
+rm -rf node_modules package-lock.json
+
+# Install with pnpm (generates pnpm-lock.yaml)
+pnpm install
+
+# Verify app still runs
+pnpm dev
+```
+
+**Update scripts everywhere npm is hardcoded**
+- `package.json` scripts: replace `npm run` → `pnpm` where referenced in docs/scripts
+- `vercel.json`: change `installCommand` to `pnpm install --frozen-lockfile && pnpm audit --audit-level=high`
+- `.github/workflows/audit.yml`: replace `npm ci` / `npm audit` with `pnpm install --frozen-lockfile` / `pnpm audit --audit-level=high`; update setup-node `cache: "npm"` → `cache: "pnpm"`; add `uses: pnpm/action-setup` step before setup-node
+- `.npmrc`: replace `save-exact=true` with a `.npmrc` for pnpm or use `pnpm config set save-exact true`
+
+**Commit**
+```bash
+git add pnpm-lock.yaml package.json vercel.json .github/workflows/audit.yml
+git rm package-lock.json
+git commit -m "chore: migrate from npm to pnpm"
+```
+
+**Apply to all future repos** — start new projects with `pnpm create next-app` instead of `npx create-next-app`.
+
+---
+
+### Step 7 — Apply to future repos
 When starting any new app, copy from `buildtrack`:
 - `.github/workflows/audit.yml`
 - `.github/workflows/dependency-review.yml`
 - `.github/dependabot.yml`
 - `CLAUDE.md`
-Then do Steps 2–5 for that repo before first deploy.
+Then do Steps 2–6 for that repo before first deploy.
 
 ---
 
