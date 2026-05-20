@@ -195,7 +195,7 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
           const isOpen = expanded === phase.id;
           const isOverdue = phase.status !== "Completed" && new Date(phase.end_date) < new Date();
 
-          const phaseColor = PHASE_COLORS[(phase.phase_number - 1) % PHASE_COLORS.length];
+          const phaseColor = PHASE_COLORS[((phase.phase_number ?? 1) - 1) % PHASE_COLORS.length] ?? PHASE_COLORS[0];
 
           return (
             <div key={phase.id} className={`${phaseColor.bg} rounded-xl shadow-sm border-l-4 border border-border overflow-hidden ${phaseColor.border} ${isOverdue ? "border-red-200" : ""}`}>
