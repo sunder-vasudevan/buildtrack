@@ -150,14 +150,23 @@ export function ExpenseForm({ onClose, onSaved, prefillItem, initialLinkedItem }
 
     // Upload receipt if provided
     if (receiptFile) {
-      const ext = receiptFile.name.split(".").pop();
-      const path = `receipts/${form.date}/${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from("buildtrack-photos")
-        .upload(path, receiptFile, { upsert: true });
-      if (!uploadError) {
+      try {
+        const ext = receiptFile.name.split(".").pop();
+        const path = `receipts/${form.date}/${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("buildtrack-photos")
+          .upload(path, receiptFile, { upsert: true });
+        if (uploadError) {
+          setError(`Receipt upload failed: ${uploadError.message}`);
+          setSaving(false);
+          return;
+        }
         const { data } = supabase.storage.from("buildtrack-photos").getPublicUrl(path);
         receiptUrl = data.publicUrl;
+      } catch (err: any) {
+        setError(`Receipt upload failed: ${err?.message ?? "Network error. Check your connection and try again."}`);
+        setSaving(false);
+        return;
       }
     }
 
@@ -168,20 +177,41 @@ export function ExpenseForm({ onClose, onSaved, prefillItem, initialLinkedItem }
     const deliverablePrefix = form.deliverable_name ? `[Deliverable:${form.deliverable_name}]` : "";
     const cleanNotesInput = form.notes;
 
-    if (prefillItem) {
-      // Editing an existing expense: UPDATE it and preserve any existing QuoteRef
-      const originalCleanNotes = cleanDeliverableNotes(prefillItem.notes);
-      const existingQuoteRef = parseQuoteRefFromNotes(prefillItem.notes);
+    try {
+      if (prefillItem) {
+        // Editing an existing expense: UPDATE it and preserve any existing QuoteRef
+        const originalCleanNotes = cleanDeliverableNotes(prefillItem.notes);
+        const existingQuoteRef = parseQuoteRefFromNotes(prefillItem.notes);
 
-      const finalNotes = [originalCleanNotes, cleanNotesInput, form.worker_name ? `Worker: ${form.worker_name}` : "", receiptUrl ? `Receipt: ${receiptUrl}` : ""].filter(Boolean).join(" | ");
-      let notesWithPrefix = [deliverablePrefix, finalNotes].filter(Boolean).join(" ");
-      if (existingQuoteRef) {
-        notesWithPrefix = `${notesWithPrefix} [QuoteRef:${existingQuoteRef}]`.trim();
-      }
+        const finalNotes = [originalCleanNotes, cleanNotesInput, form.worker_name ? `Worker: ${form.worker_name}` : "", receiptUrl ? `Receipt: ${receiptUrl}` : ""].filter(Boolean).join(" | ");
+        let notesWithPrefix = [deliverablePrefix, finalNotes].filter(Boolean).join(" ");
+        if (existingQuoteRef) {
+          notesWithPrefix = `${notesWithPrefix} [QuoteRef:${existingQuoteRef}]`.trim();
+        }
 
-      await supabase
-        .from("budget_items")
-        .update({
+        const { error: updateError } = await supabase
+          .from("budget_items")
+          .update({
+            item_name: form.item_name,
+            category: form.category,
+            actual_cost: Number(form.amount),
+            status: "Paid",
+            payment_date: form.date,
+            phase_id: form.phase_id || null,
+            notes: notesWithPrefix || null,
+          })
+          .eq("id", prefillItem.id);
+        if (updateError) throw updateError;
+      } else {
+        // Insert a new expense (always insert, even when linked to a quote)
+        const finalNotes = [cleanNotesInput, form.worker_name ? `Worker: ${form.worker_name}` : "", receiptUrl ? `Receipt: ${receiptUrl}` : ""].filter(Boolean).join(" | ");
+        let notesWithPrefix = [deliverablePrefix, finalNotes].filter(Boolean).join(" ");
+        if (selectedBudgetItemId) {
+          notesWithPrefix = `${notesWithPrefix} [QuoteRef:${selectedBudgetItemId}]`.trim();
+        }
+
+        const { error: insertError } = await supabase.from("budget_items").insert({
+          project_id: projectId,
           item_name: form.item_name,
           category: form.category,
           actual_cost: Number(form.amount),
@@ -189,26 +219,13 @@ export function ExpenseForm({ onClose, onSaved, prefillItem, initialLinkedItem }
           payment_date: form.date,
           phase_id: form.phase_id || null,
           notes: notesWithPrefix || null,
-        })
-        .eq("id", prefillItem.id);
-    } else {
-      // Insert a new expense (always insert, even when linked to a quote)
-      const finalNotes = [cleanNotesInput, form.worker_name ? `Worker: ${form.worker_name}` : "", receiptUrl ? `Receipt: ${receiptUrl}` : ""].filter(Boolean).join(" | ");
-      let notesWithPrefix = [deliverablePrefix, finalNotes].filter(Boolean).join(" ");
-      if (selectedBudgetItemId) {
-        notesWithPrefix = `${notesWithPrefix} [QuoteRef:${selectedBudgetItemId}]`.trim();
+        });
+        if (insertError) throw insertError;
       }
-
-      await supabase.from("budget_items").insert({
-        project_id: projectId,
-        item_name: form.item_name,
-        category: form.category,
-        actual_cost: Number(form.amount),
-        status: "Paid",
-        payment_date: form.date,
-        phase_id: form.phase_id || null,
-        notes: notesWithPrefix || null,
-      });
+    } catch (err: any) {
+      setError(`Failed to save expense: ${err?.message ?? "Please try again."}`);
+      setSaving(false);
+      return;
     }
 
     setSaving(false);
