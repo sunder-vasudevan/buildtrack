@@ -6,6 +6,7 @@ import Image from "next/image";
 import { HelpCircle, LogOut, X } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { APP_VERSION } from "@/lib/version";
 
 const HELP_SECTIONS = [
   { title: "Navigation", items: [
@@ -117,7 +118,7 @@ export function TopBar() {
                   </div>
                 </div>
               ))}
-              <p className="text-xs text-center text-gray-400 pb-4">v2.3.0 · 19 May 2026 · buildtrackapp.vercel.app</p>
+              <p className="text-xs text-center text-gray-400 pb-4">{APP_VERSION} · buildtrackapp.vercel.app</p>
             </div>
           </div>
         </div>

@@ -8,6 +8,7 @@ import { ProjectInfoTab } from "@/components/more/ProjectInfoTab";
 import { UsersTab } from "@/components/more/UsersTab";
 import { BackupTab } from "@/components/more/BackupTab";
 import { Building2, Users, HardDrive, LogOut } from "lucide-react";
+import { APP_VERSION } from "@/lib/version";
 
 const ADMIN_EMAIL = "sunder.v@outlook.com";
 
@@ -96,7 +97,7 @@ export default function MorePage() {
           >
             <LogOut className="h-4 w-4" /> Sign out
           </button>
-          <p className="text-xs text-muted-foreground">v2.3.0 · 20 May 2026 · Built in Hyderabad with ❤️</p>
+          <p className="text-xs text-muted-foreground">{APP_VERSION}</p>
         </div>
       </div>
     </div>

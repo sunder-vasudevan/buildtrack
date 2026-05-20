@@ -46,15 +46,21 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
     if (!form.phase_id || !form.deliverable_name || !form.description) return;
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
-    const { data: project } = await supabase.from("projects").select("id").eq("user_id", user!.id).single();
 
-    const uploadedPhotos: { url: string; caption: string }[] = [];
-    for (const file of photoFiles) {
-      try {
-        const url = await uploadFile(file);
-        uploadedPhotos.push({ url, caption: "" });
-      } catch {}
-    }
+    // Fetch project and upload photos in parallel
+    const [{ data: project }, uploadedPhotos] = await Promise.all([
+      supabase.from("projects").select("id").eq("user_id", user!.id).single(),
+      (async () => {
+        const results: { url: string; caption: string }[] = [];
+        for (const file of photoFiles) {
+          try {
+            const url = await uploadFile(file);
+            results.push({ url, caption: "" });
+          } catch {}
+        }
+        return results;
+      })(),
+    ]);
 
     const categoryTag = form.category ? `[Category: ${form.category}]` : "";
     const labourTag = (form.category === "Labour" && form.no_of_labour) ? `[Labour: ${form.no_of_labour}]` : "";

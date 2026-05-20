@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { Phase, DailyLog, Reminder } from "@/lib/types";
 import { TrackerClient } from "@/components/tracker/TrackerClient";
+import { APP_VERSION } from "@/lib/version";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export default async function TrackerPage() {
 
   const [phasesRes, logsRes, remindersRes] = await Promise.all([
     supabase.from("phases").select("*").eq("user_id", user.id).order("phase_number"),
-    supabase.from("daily_logs").select("*").eq("user_id", user.id).order("log_date", { ascending: false }),
+    supabase.from("daily_logs").select("id, project_id, user_id, log_date, phase_id, description, weather, work_status, issues, resolution, deliverable_name, photos, created_at").eq("user_id", user.id).order("log_date", { ascending: false }).limit(100),
     supabase.from("reminders").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
   ]);
 
@@ -34,7 +35,7 @@ export default async function TrackerPage() {
         <TrackerClient phases={phases} logs={logs} initialReminders={reminders} />
 
         <div className="pt-8 pb-16 text-center shrink-0">
-          <p className="text-xs text-muted-foreground">v2.3.0 · 20 May 2026 · Built in Hyderabad with ❤️</p>
+          <p className="text-xs text-muted-foreground">{APP_VERSION}</p>
         </div>
       </div>
     </div>

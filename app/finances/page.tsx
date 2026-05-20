@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { FinancesClient } from "@/components/finances/FinancesClient";
 import { Income, BudgetItem, Expense } from "@/lib/types";
+import { APP_VERSION } from "@/lib/version";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export default async function FinancesPage() {
   if (!user) redirect("/auth/login");
 
   const [budgetRes, projectRes, incomeRes, phasesRes, expensesRes] = await Promise.all([
-    supabase.from("budget_items").select("*").eq("user_id", user.id).order("category"),
+    supabase.from("budget_items").select("id, project_id, user_id, item_name, category, phase_id, quoted_cost, actual_cost, vendor_id, status, payment_date, notes, receipt_url, created_at").eq("user_id", user.id).order("category"),
     supabase.from("projects").select("total_budget").eq("user_id", user.id).maybeSingle(),
     supabase.from("income").select("*").eq("user_id", user.id).order("date_received", { ascending: false }),
     supabase.from("phases").select("id, name, deliverables, phase_number").eq("user_id", user.id).order("phase_number"),
@@ -45,7 +46,7 @@ export default async function FinancesPage() {
       />
 
       <div className="pt-8 pb-16 text-center shrink-0">
-        <p className="text-xs text-muted-foreground">v2.3.0 · 20 May 2026 · Built in Hyderabad with ❤️</p>
+        <p className="text-xs text-muted-foreground">{APP_VERSION}</p>
       </div>
     </div>
   );
