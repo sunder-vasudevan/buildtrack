@@ -173,7 +173,7 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
       const targetItem = prefillItem || budgetItems.find((item) => item.id === targetId);
       const originalCleanNotes = cleanDeliverableNotes(targetItem?.notes);
 
-      const finalNotes = [originalCleanNotes, cleanNotesInput, form.worker_name ? `Worker: ${form.worker_name}` : "", receiptUrl ? `Receipt: ${receiptUrl}` : ""].filter(Boolean).join(" | ");
+      const finalNotes = [originalCleanNotes, cleanNotesInput, form.worker_name ? `Worker: ${form.worker_name}` : ""].filter(Boolean).join(" | ");
       const notesWithPrefix = [deliverablePrefix, finalNotes].filter(Boolean).join(" ");
 
       // Update existing budget item
@@ -187,11 +187,12 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
           payment_date: form.date,
           phase_id: form.phase_id || null,
           notes: notesWithPrefix || null,
+          ...(receiptUrl ? { receipt_url: receiptUrl } : {}),
         })
         .eq("id", targetId);
     } else {
       // Insert new budget item as expense
-      const finalNotes = [cleanNotesInput, form.worker_name ? `Worker: ${form.worker_name}` : "", receiptUrl ? `Receipt: ${receiptUrl}` : ""].filter(Boolean).join(" | ");
+      const finalNotes = [cleanNotesInput, form.worker_name ? `Worker: ${form.worker_name}` : ""].filter(Boolean).join(" | ");
       const notesWithPrefix = [deliverablePrefix, finalNotes].filter(Boolean).join(" ");
 
       await supabase.from("budget_items").insert({
@@ -204,6 +205,7 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
         payment_date: form.date,
         phase_id: form.phase_id || null,
         notes: notesWithPrefix || null,
+        receipt_url: receiptUrl,
       });
     }
 
