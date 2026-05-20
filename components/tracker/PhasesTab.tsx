@@ -129,17 +129,18 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
       const url = await uploadFile(file);
       setPhotos(prev => ({ ...prev, [targetKey]: url }));
 
-      // Persist photo_url back to DB so it survives page reload
       const phase = phases.find(p => p.id === phaseId);
       if (phase) {
         const updatedDeliverables = (phase.deliverables as any[] ?? []).map((d: any, i: number) =>
           i === index ? { ...d, photo_url: url } : d
         );
-        await supabase.from("phases").update({ deliverables: updatedDeliverables }).eq("id", phaseId);
+        const { error: dbError } = await supabase.from("phases").update({ deliverables: updatedDeliverables }).eq("id", phaseId);
+        if (dbError) throw dbError;
         setPhases(prev => prev.map(p => p.id === phaseId ? { ...p, deliverables: updatedDeliverables } : p));
       }
-    } catch {
-      alert("Error uploading photo. Please try again.");
+    } catch (err) {
+      setPhotos(prev => { const n = { ...prev }; delete n[targetKey]; return n; });
+      alert(`Error uploading photo: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
     
     setUploading(null);

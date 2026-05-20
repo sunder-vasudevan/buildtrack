@@ -45,6 +45,7 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   async function handleSave() {
     if (!form.phase_id || !form.deliverable_name || !form.description) return;
     setSaving(true);
+    try {
     const { data: { user } } = await supabase.auth.getUser();
 
     // Fetch project and upload photos in parallel
@@ -56,7 +57,9 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
           try {
             const url = await uploadFile(file);
             results.push({ url, caption: "" });
-          } catch {}
+          } catch (err) {
+            throw new Error(`Photo upload failed for "${file.name}": ${err instanceof Error ? err.message : "Unknown error"}`);
+          }
         }
         return results;
       })(),
@@ -96,6 +99,10 @@ function QuickLogForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
     setSaving(false);
     onSaved();
     onClose();
+    } catch (err) {
+      alert(`Save failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+      setSaving(false);
+    }
   }
 
   return (
@@ -581,7 +588,13 @@ function QuickExpenseForm({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
     let receiptUrl: string | null = null;
     if (receiptFile) {
-      try { receiptUrl = await uploadFile(receiptFile); } catch {}
+      try {
+        receiptUrl = await uploadFile(receiptFile);
+      } catch (err) {
+        setError(`Receipt upload failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+        setSaving(false);
+        return;
+      }
     }
 
     const { error: e } = await supabase.from("expenses").insert({

@@ -98,7 +98,11 @@ export function LogsClient({
       try {
         const url = await uploadFile(file);
         uploadedPhotos.push({ url, caption: "" });
-      } catch {}
+      } catch (err) {
+        alert(`Failed to upload photo "${file.name}": ${err instanceof Error ? err.message : "Unknown error"}`);
+        setSaving(false);
+        return;
+      }
     }
 
     const categoryTag = form.category ? `[Category: ${form.category}]` : "";

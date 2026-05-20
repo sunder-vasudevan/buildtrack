@@ -156,7 +156,11 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
     if (receiptFile) {
       try {
         receiptUrl = await uploadFile(receiptFile);
-      } catch {}
+      } catch (err) {
+        setError(`Receipt upload failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+        setSaving(false);
+        return;
+      }
     }
 
     // Get project id
@@ -169,15 +173,13 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
     const cleanNotesInput = form.notes;
 
     if (targetId) {
-      // Find original notes to merge if updating
       const targetItem = prefillItem || budgetItems.find((item) => item.id === targetId);
       const originalCleanNotes = cleanDeliverableNotes(targetItem?.notes);
 
       const finalNotes = [originalCleanNotes, cleanNotesInput, form.worker_name ? `Worker: ${form.worker_name}` : ""].filter(Boolean).join(" | ");
       const notesWithPrefix = [deliverablePrefix, finalNotes].filter(Boolean).join(" ");
 
-      // Update existing budget item
-      await supabase
+      const { error: updateError } = await supabase
         .from("budget_items")
         .update({
           item_name: form.item_name,
@@ -190,12 +192,17 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
           ...(receiptUrl ? { receipt_url: receiptUrl } : {}),
         })
         .eq("id", targetId);
+
+      if (updateError) {
+        setError(`Failed to save: ${updateError.message}`);
+        setSaving(false);
+        return;
+      }
     } else {
-      // Insert new budget item as expense
       const finalNotes = [cleanNotesInput, form.worker_name ? `Worker: ${form.worker_name}` : ""].filter(Boolean).join(" | ");
       const notesWithPrefix = [deliverablePrefix, finalNotes].filter(Boolean).join(" ");
 
-      await supabase.from("budget_items").insert({
+      const { error: insertError } = await supabase.from("budget_items").insert({
         project_id: projectId,
         user_id: user!.id,
         item_name: form.item_name,
@@ -207,6 +214,12 @@ export function ExpenseForm({ onClose, onSaved, prefillItem }: ExpenseFormProps)
         notes: notesWithPrefix || null,
         receipt_url: receiptUrl,
       });
+
+      if (insertError) {
+        setError(`Failed to save: ${insertError.message}`);
+        setSaving(false);
+        return;
+      }
     }
 
     setSaving(false);
