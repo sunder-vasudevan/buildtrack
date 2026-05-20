@@ -5,3 +5,11 @@ updates:
     schedule:
       interval: "daily"
     open-pull-requests-limit: 10
+
+  # Keeps GitHub Actions pinned to latest SHA automatically.
+  # When Dependabot opens a PR it updates both the SHA and the version comment.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
