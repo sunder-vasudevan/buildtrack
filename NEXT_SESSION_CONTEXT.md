@@ -1,42 +1,37 @@
 # Next Session Context — BuildTrack
-**Updated:** 2026-05-18 08:52 IST
+**Updated:** 2026-05-20 IST
 
-## Completed this session (2026-05-18 continued)
-- Dashboard phase list → accordion (tap: dates + deliverables + Open in Tracker link)
-- Expense Rebuild v1: new `expenses` table (SQL run, RLS enabled)
-- Quick Expense: frictionless 5-field form (amount/date/category/description/photo)
-- Finances: Unplanned Expenses section + inline Link flow (create phase/deliverable on spot)
-- Dashboard spent: SUM(budget_items.actual_cost) + SUM(expenses WHERE budget_item_id IS NULL)
-- Git commit: v2.2.0
+## Completed this session
+- Quick Expense edit modal — pencil icon on each row, edit amount/date/category/description inline
+- "Quick Expenses" section renamed from "Unplanned Expenses"
+- Suspense + loading.tsx on Dashboard, Finances, Tracker, More — instant first paint on all pages
+- More → Project Info: fixed slow load (was fetching all windows with no filter)
+- B2 app key expired — rotated to new key (003fa54df2950990000000004)
+- Upload error now shows actual failure reason (not silent)
+- Diagnosed: upload failures were B2 key expiry, not CORS/Safari issue
 
 ## Immediate verify at session start
-- buildtrackapp.vercel.app loads
-- Quick Expense (+ button) opens frictionless form, saves to expenses table
-- Finances tab shows Unplanned Expenses section
-- Dashboard spent total is correct (no double count)
-- Phase accordion on dashboard expands with dates + deliverables
+- buildtrackapp.vercel.app loads with skeleton immediately
+- Quick Expense upload works on iPhone Safari
+- Quick Expense edit (pencil icon) works in Finances → Quick Expenses
 
-## Known issues / debt
-- Vasudha's old Supabase Storage photo URLs not migrated (script at scripts/migrate-photos-to-b2.ts)
-- VendorsTab exists but unreachable from nav
-- TEST_REPORT.md manual tests pending
-
-## Next tasks (confirm at session start)
-- Test the full expense flow end to end (add → link → verify budget reflects)
-- Photo migration from Supabase Storage to B2
-- VendorsTab cleanup
+## Open items / next tasks
+- Labour pool flow: user wants Quick Add to write directly to budget_items (category=Labour) instead of separate expenses table — plan needed
+- Photo migration: Vasudha's old Supabase Storage URLs not migrated (script at scripts/migrate-photos-to-b2.ts)
+- Security hardening checklist (parked from previous session)
 
 ## Cold Start Checklist
 1. Read this file top to bottom
 2. Read ~/.claude/projects/-Users-sunnyhayes-Daytona/memory/MEMORY.md
 3. Read global CLAUDE.md
-4. Check Helm parking lot
+4. Check Helm parking lot for BuildTrack items
 5. Verify buildtrackapp.vercel.app loads before any work
 
 ## Credentials
-- Supabase project: djbvntsnpqlxcetdoofu
-- B2: bucket=buildtrack-files, endpoint=s3.eu-central-003.backblazeb2.com, keyID=fa54df295099
-- B2_APP_KEY + SUPABASE_SERVICE_ROLE_KEY: Vercel env only
+- Supabase: djbvntsnpqlxcetdoofu
+- B2: bucket=buildtrack-files, endpoint=s3.eu-central-003.backblazeb2.com
+- B2 keyID: 003fa54df2950990000000004 (rotated 2026-05-20)
+- B2_APP_KEY: in Vercel env + .env.local
 - Admin: sunder.v@outlook.com
 
 ## Deploy commands
