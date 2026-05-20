@@ -70,10 +70,35 @@ For **every repo** (start with `buildtrack`):
    - Block force pushes
    - Restrict deletions
 
-### Step 3 — Rotate all secrets (precaution after GitHub breach)
-- Supabase: Dashboard → Settings → API → regenerate `anon` and `service_role` keys → update in Vercel env vars
-- Vercel: Settings → Environment Variables — verify no stale keys
-- GitHub: github.com/settings/tokens → revoke any unused personal access tokens
+### Step 3 — Review and rotate all API keys
+
+Go through every service this app touches. Rotate any key that is older than 90 days, has broad permissions, or you can't account for.
+
+**Supabase**
+- Dashboard → Settings → API
+- Regenerate `anon` key and `service_role` key
+- Update both in Vercel env vars after rotating
+- Check Row Level Security is ON for all tables (Table Editor → RLS)
+
+**Vercel**
+- Project → Settings → Environment Variables
+- Remove any variables that are no longer used
+- For each key: confirm it's scoped to the right environments (Production / Preview / Development)
+
+**Google Drive / Service Account** (if backup-to-drive is active)
+- Google Cloud Console → IAM → Service Accounts → buildtrack service account
+- Keys tab → delete old keys → Create new key → download JSON
+- Update the key in Vercel env vars
+
+**GitHub Personal Access Tokens**
+- github.com/settings/tokens → review each token
+- Revoke any with more than `repo` scope, or anything unused
+- Rotate tokens older than 90 days
+
+**General rule for any future service added:**
+- Use the narrowest scope/permission available
+- Set an expiry date when the service allows it
+- Record where each key is used so rotation is easy
 
 ### Step 4 — Enable Secret Scanning + Push Protection
 For **every repo**:
