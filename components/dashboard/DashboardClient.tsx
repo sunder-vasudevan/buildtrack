@@ -445,7 +445,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
 
       {/* Footer */}
       <div className="pt-8 pb-16 text-center shrink-0">
-        <button onClick={() => setShowChangelog(true)} className="text-xs text-muted-foreground cursor-pointer underline-offset-2 hover:text-gray-600 transition-colors">v2.2.0 · 18 May 2026 · Built in Hyderabad with ❤️</button>
+        <button onClick={() => setShowChangelog(true)} className="text-xs text-muted-foreground cursor-pointer underline-offset-2 hover:text-gray-600 transition-colors">v2.3.0 · 20 May 2026 · Built in Hyderabad with ❤️</button>
       </div>
 
       {/* ================================= DETAIL MODALS ================================= */}

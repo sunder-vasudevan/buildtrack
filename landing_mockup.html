@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BuildTrack - Construction Project Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#0F172A',
+                        accent: '#3B82F6',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans antialiased text-slate-900 overflow-x-hidden">
+    <!-- Navbar -->
+    <nav class="fixed w-full z-50 glass-panel border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center gap-2">
+                    <div class="bg-accent/10 p-2 rounded-lg">
+                        <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                    </div>
+                    <span class="font-bold text-xl tracking-tight text-primary">BuildTrack</span>
+                </div>
+                <div class="hidden md:flex space-x-8">
+                    <a href="#" class="text-slate-600 hover:text-primary font-medium transition-colors">Features</a>
+                    <a href="#" class="text-slate-600 hover:text-primary font-medium transition-colors">Pricing</a>
+                    <a href="#" class="text-slate-600 hover:text-primary font-medium transition-colors">Testimonials</a>
+                </div>
+                <div class="flex space-x-4">
+                    <button class="hidden md:block text-slate-600 hover:text-primary font-medium transition-colors">Log in</button>
+                    <button class="bg-primary text-white px-5 py-2 rounded-xl font-medium hover:bg-slate-800 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5">Start Tracking Free</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
+        <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03]"></div>
+        
+        <!-- Decorative blobs -->
+        <div class="absolute top-0 -left-4 w-72 h-72 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
+        <div class="absolute top-0 -right-4 w-72 h-72 bg-indigo-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
+        <div class="absolute -bottom-8 left-20 w-72 h-72 bg-cyan-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+
+        <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <div class="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-accent font-medium text-sm mb-6 border border-blue-100 shadow-sm">
+                <span class="flex w-2 h-2 rounded-full bg-accent mr-2 animate-pulse"></span>
+                Now with AI Budget Tracking
+            </div>
+            
+            <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight mb-8 leading-tight">
+                Master Your Construction <br class="hidden md:block" />
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-accent to-indigo-600">Projects with Ease.</span>
+            </h1>
+            
+            <p class="mt-4 text-xl text-slate-500 max-w-2xl mx-auto mb-10 leading-relaxed">
+                BuildTrack organizes your phases, schedules, deliverables, and finances into one beautiful dashboard. Stop juggling spreadsheets and start building.
+            </p>
+            
+            <div class="flex flex-col sm:flex-row justify-center gap-4 mb-20">
+                <button class="bg-accent text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-blue-600 transition-all shadow-lg shadow-blue-500/30 transform hover:-translate-y-1">
+                    Get Started Free
+                </button>
+                <button class="bg-white text-slate-700 border border-slate-200 px-8 py-4 rounded-xl font-semibold text-lg hover:bg-slate-50 transition-all shadow-sm flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    View Live Demo
+                </button>
+            </div>
+
+            <!-- Video Mockup Container -->
+            <div class="relative mx-auto max-w-5xl">
+                <!-- Mac Window Frame -->
+                <div class="rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden flex flex-col transform transition-transform hover:scale-[1.01] duration-500">
+                    <div class="bg-slate-100 border-b border-slate-200 px-4 py-3 flex items-center gap-2">
+                        <div class="flex gap-1.5">
+                            <div class="w-3 h-3 rounded-full bg-red-400"></div>
+                            <div class="w-3 h-3 rounded-full bg-amber-400"></div>
+                            <div class="w-3 h-3 rounded-full bg-emerald-400"></div>
+                        </div>
+                        <div class="mx-auto bg-white border border-slate-200 text-slate-400 text-xs px-3 py-1 rounded-md flex items-center gap-1 font-medium w-64 justify-center shadow-sm">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                            buildtrackapp.vercel.app
+                        </div>
+                    </div>
+                    <!-- The WebP Demo Video goes here -->
+                    <div class="relative aspect-[16/9] w-full bg-slate-900 flex items-center justify-center">
+                        <!-- IMPORTANT: Use the <img> tag for .webp animations, not <video>! -->
+                        <img src="buildtrack_demo_1779110953115.webp" alt="BuildTrack Demo" class="w-full h-full object-cover">
+                        
+                        <!-- Optional Overlay/Play Button if desired (for aesthetics) -->
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-900/40 to-transparent pointer-events-none"></div>
+                    </div>
+                </div>
+                
+                <!-- Floating decorative stats cards -->
+                <div class="absolute -right-8 -bottom-8 bg-white p-4 rounded-xl shadow-xl border border-slate-100 animate-bounce" style="animation-duration: 3s;">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-green-100 p-2 rounded-lg text-green-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                        </div>
+                        <div>
+                            <p class="text-sm text-slate-500 font-medium">Under Budget</p>
+                            <p class="text-xl font-bold text-slate-900">14.5%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+</body>
+</html>

@@ -15,14 +15,26 @@ export default function SetPasswordPage() {
   const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
-    // Supabase processes the invite token from the URL hash automatically
+    // Handle both invite tokens and password recovery tokens
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setSessionReady(true);
-      } else {
-        setError("Invalid or expired invite link. Please ask for a new one.");
       }
     });
+    // PASSWORD_RECOVERY event fires when user arrives via reset link
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" && session) {
+        setSessionReady(true);
+        setError("");
+      }
+    });
+    // Fallback: if no session after 3s, show error
+    const timer = setTimeout(() => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) setError("Invalid or expired link. Please request a new one.");
+      });
+    }, 3000);
+    return () => { subscription.unsubscribe(); clearTimeout(timer); };
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -56,8 +68,8 @@ export default function SetPasswordPage() {
           <div className="bg-primary/10 p-4 rounded-2xl mb-4">
             <HardHat className="h-10 w-10 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Welcome to BuildTrack</h1>
-          <p className="text-sm text-gray-500 mt-1">Set a password to secure your account</p>
+          <h1 className="text-2xl font-bold text-gray-900">Set new password</h1>
+          <p className="text-sm text-gray-500 mt-1">Choose a strong password for your account</p>
         </div>
 
         {!sessionReady && !error && (

@@ -96,7 +96,7 @@ export default function MorePage() {
           >
             <LogOut className="h-4 w-4" /> Sign out
           </button>
-          <p className="text-xs text-muted-foreground">v2.0.0 · 17 May 2026 · Built in Hyderabad with ❤️</p>
+          <p className="text-xs text-muted-foreground">v2.3.0 · 20 May 2026 · Built in Hyderabad with ❤️</p>
         </div>
       </div>
     </div>

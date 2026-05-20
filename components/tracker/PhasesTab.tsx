@@ -140,8 +140,10 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
   async function insertPhase() {
     if (!newPhase.name || !newPhase.start_date || !newPhase.end_date) return;
     setAddingPhase(true);
+    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase.from("phases").insert({
       project_id: phases[0].project_id,
+      user_id: user?.id,
       phase_number: phases.length + 1,
       name: newPhase.name,
       start_date: newPhase.start_date,
@@ -150,7 +152,12 @@ export function PhasesClient({ initialPhases }: { initialPhases: Phase[] }) {
       deliverables: newPhase.deliverables.filter(Boolean).map(name => ({ name, planned_start: null, planned_due: null, actual_due: null })),
     }).select().single();
     setAddingPhase(false);
-    if (!error && data) {
+    if (error) {
+      console.error("insertPhase error:", error);
+      alert(`Failed to add phase: ${error.message}`);
+      return;
+    }
+    if (data) {
       setPhases(prev => [...prev, data as Phase]);
       setShowAddPhase(false);
       setNewPhase({ name: "", start_date: "", end_date: "", deliverables: [] });

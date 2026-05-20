@@ -34,7 +34,7 @@ export default async function TrackerPage() {
         <TrackerClient phases={phases} logs={logs} initialReminders={reminders} />
 
         <div className="pt-8 pb-16 text-center shrink-0">
-          <p className="text-xs text-muted-foreground">v2.0.0 · 17 May 2026 · Built in Hyderabad with ❤️</p>
+          <p className="text-xs text-muted-foreground">v2.3.0 · 20 May 2026 · Built in Hyderabad with ❤️</p>
         </div>
       </div>
     </div>

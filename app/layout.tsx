@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { BottomNav } from "@/components/nav/BottomNav";
+import { TopBar } from "@/components/nav/TopBar";
 import { PrefsProvider } from "@/lib/prefs-context";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -22,7 +23,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className={inter.className}>
         <PrefsProvider>
-          <main className="min-h-screen pb-20 bg-gray-50">
+          <TopBar />
+          <main className="min-h-screen pt-12 pb-20 bg-gray-50">
             {children}
           </main>
           <BottomNav />
